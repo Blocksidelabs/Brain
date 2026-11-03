@@ -7,7 +7,16 @@ export default defineConfig({
   plugins: [react()],
   build: {
     target: 'es2022',
-    chunkSizeWarningLimit: 1800,
+    chunkSizeWarningLimit: 3000,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          react: ['react', 'react-dom'],
+          three: ['three'],
+          rapier: ['@dimforge/rapier3d-compat'],
+        },
+      },
+    },
   },
   server: {
     port: 5173,
