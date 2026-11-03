@@ -9,6 +9,10 @@ dist-ssr/
 playwright-report/
 test-results/
 
+# Scratch output from verification runs
+verify-done.txt
+dev-http.txt
+
 # Logs
 *.log
 npm-debug.log*

@@ -78,7 +78,7 @@ export class GameManager {
     this.composer.addPass(new RenderPass(this.scene, this.systems.camera));
     const w = Math.max(1, this.container.clientWidth);
     const h = Math.max(1, this.container.clientHeight);
-    this.bloom = new UnrealBloomPass(new THREE.Vector2(w, h), q.bloomStrength, 0.5, 0.82);
+    this.bloom = new UnrealBloomPass(new THREE.Vector2(w, h), q.bloomStrength, 0.5, 0.88);
     this.bloom.enabled = q.bloom;
     this.composer.addPass(this.bloom);
     this.composer.addPass(new OutputPass());

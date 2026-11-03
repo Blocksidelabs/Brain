@@ -12,8 +12,8 @@ export interface QualityPreset {
 
 export const QUALITY_PRESETS: Record<QualityId, QualityPreset> = {
   low: { pixelRatio: 1, shadows: false, shadowMapSize: 0, bloom: false, cameraFar: 480, fogDensity: 0.0042, bloomStrength: 0 },
-  medium: { pixelRatio: 1.5, shadows: true, shadowMapSize: 1024, bloom: true, cameraFar: 700, fogDensity: 0.0034, bloomStrength: 0.55 },
-  high: { pixelRatio: 2, shadows: true, shadowMapSize: 2048, bloom: true, cameraFar: 900, fogDensity: 0.003, bloomStrength: 0.7 },
+  medium: { pixelRatio: 1.5, shadows: true, shadowMapSize: 1024, bloom: true, cameraFar: 700, fogDensity: 0.0034, bloomStrength: 0.45 },
+  high: { pixelRatio: 2, shadows: true, shadowMapSize: 2048, bloom: true, cameraFar: 900, fogDensity: 0.003, bloomStrength: 0.5 },
 };
 
 /** Respect the OS/browser reduced-motion preference. */

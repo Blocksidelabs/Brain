@@ -131,7 +131,7 @@ export class WorldManager {
     this.fog.color.copy(NIGHT_FOG).lerp(DAY_FOG, day).lerp(DUSK_FOG, dusk * 0.6);
     this.fog.density = this.baseFogDensity * (1 + night * 0.3);
 
-    this.hemi.intensity = 0.22 + day * 0.85;
+    this.hemi.intensity = 0.3 + day * 0.85;
     this.hemi.color.copy(HEMI_NIGHT).lerp(HEMI_DAY, day);
 
     if (sunH > 0) {
@@ -141,7 +141,7 @@ export class WorldManager {
     } else {
       TMP_DIR.set(-Math.cos(ang) * 0.9, Math.max(-sunH, 0.05), -0.35).normalize();
       this.sun.color.copy(MOON_COLOR);
-      this.sun.intensity = night * 0.35;
+      this.sun.intensity = night * 0.6;
     }
     this.sun.position.copy(playerPos).addScaledVector(TMP_DIR, 160);
     this.sunTarget.position.copy(playerPos);

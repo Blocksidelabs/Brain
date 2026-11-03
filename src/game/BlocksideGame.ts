@@ -12,7 +12,7 @@ import { WorldManager } from './WorldManager';
 import { createMinimapDrawer } from './minimap';
 import { ZONE_DEFS, zoneAt } from './city/zones';
 import type { GameSettings, HudState } from '../state/store';
-import { registerMinimapDrawer } from '../state/minimapRegistry';
+import { drawMinimap, registerMinimapDrawer } from '../state/minimapRegistry';
 
 export interface BlocksideHooks {
   getSettings: () => GameSettings;
@@ -104,6 +104,11 @@ export class BlocksideGame implements GameSystems {
     this.marker.yaw = spawn.yaw;
     registerMinimapDrawer(createMinimapDrawer(this.cityData, this.marker));
 
+    // ---- test/debug hook (harmless in production, used by e2e) ----
+    (window as unknown as { __BLOCKSIDE_DEBUG__?: unknown }).__BLOCKSIDE_DEBUG__ = {
+      getPosition: () => this.player.position.toArray(),
+    };
+
     // ---- HUD seed ----
     this.currentZone = ZONE_DEFS[zoneAt(spawn.x, spawn.z)].label;
     this.hooks.onHud({ zone: this.currentZone, clock: this.world.clockString() });
@@ -127,6 +132,7 @@ export class BlocksideGame implements GameSystems {
     this.marker.x = this.player.position.x;
     this.marker.z = this.player.position.z;
     this.marker.yaw = this.cam.yaw;
+    drawMinimap();
 
     this.hudTimer += dt;
     if (this.hudTimer >= 0.25) {

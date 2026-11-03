@@ -35,14 +35,16 @@ export class AudioManager {
   resume(): void {
     this.ensure();
     if (!this.ctx) return;
-    void this.ctx.resume();
+    void this.ctx.resume().catch(() => {
+      /* autoplay policy may block until the next real gesture */
+    });
     if (this.musicOn && this.timer === null) this.startMusic();
   }
 
   /** Call when pausing / leaving gameplay. */
   suspend(): void {
     this.stopMusic();
-    if (this.ctx) void this.ctx.suspend();
+    if (this.ctx) void this.ctx.suspend().catch(() => undefined);
   }
 
   private ensure(): void {

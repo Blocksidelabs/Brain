@@ -1,5 +1,9 @@
 import { expect, test } from '@playwright/test';
 
+interface DebugHook {
+  __BLOCKSIDE_DEBUG__?: { getPosition(): number[] };
+}
+
 test('BLOCKSIDE boots into a playable city without console errors', async ({ page }) => {
   const errors: string[] = [];
   page.on('pageerror', (e) => errors.push(`pageerror: ${e.message}`));
@@ -18,11 +22,29 @@ test('BLOCKSIDE boots into a playable city without console errors', async ({ pag
   const canvas = page.locator('.game-host canvas');
   await expect(canvas).toBeVisible({ timeout: 20000 });
 
-  // Let the world settle, then walk around
-  await page.waitForTimeout(3000);
+  // Wait for the simulation loop to be live
+  await page.waitForFunction(
+    () => Boolean((window as unknown as DebugHook).__BLOCKSIDE_DEBUG__),
+    undefined,
+    { timeout: 20000 },
+  );
+  await page.waitForTimeout(1500);
+
+  // Actual gameplay verification: walking must move the player west (W with
+  // the spawn camera facing downtown).
+  const readPos = () =>
+    page.evaluate(
+      () => (window as unknown as DebugHook).__BLOCKSIDE_DEBUG__!.getPosition(),
+    );
+  const before = await readPos();
   await page.keyboard.down('w');
-  await page.waitForTimeout(1200);
+  await page.waitForTimeout(1500);
   await page.keyboard.up('w');
+  const after = await readPos();
+
+  const dist = Math.hypot(after[0] - before[0], after[2] - before[2]);
+  expect(dist).toBeGreaterThan(1.5);
+  expect(after[0]).toBeLessThan(before[0]);
 
   expect(errors).toEqual([]);
   await page.screenshot({ path: 'test-results/blockside-smoke.png', fullPage: false });

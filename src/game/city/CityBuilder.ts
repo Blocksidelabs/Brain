@@ -420,7 +420,7 @@ export function buildCity(data: CityData): CityBuild {
   const update = (_dt: number, night: number, elapsed: number): void => {
     oceanUniforms.uTime.value = elapsed;
     oceanUniforms.uNight.value = night;
-    for (const m of windowMats) m.emissiveIntensity = 0.12 + night * 1.5;
+    for (const m of windowMats) m.emissiveIntensity = 0.12 + night * 0.9;
     lampHeadMat.emissiveIntensity = 0.15 + night * 2.4;
     poolMat.opacity = night * 0.85;
     for (const f of flickers) {
