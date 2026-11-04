@@ -5,7 +5,7 @@
   "description": "BLOCKSIDE — an original browser-based neon open-world sandbox. Phase 1: playable 3D city.",
   "type": "module",
   "scripts": {
-    "dev": "vite",
+    "dev": "vite --host 0.0.0.0",
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",

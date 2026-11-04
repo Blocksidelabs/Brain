@@ -19,7 +19,11 @@ export default defineConfig({
     },
   },
   server: {
+    // Network access: listen on all interfaces so phones on the same
+    // Wi-Fi can reach the dev server (e.g. http://<PC-IP>:5173).
+    host: '0.0.0.0',
     port: 5173,
+    strictPort: true,
   },
   test: {
     environment: 'node',
