@@ -183,6 +183,99 @@ export class AudioManager {
     osc.stop(t + 0.1);
   }
 
+  private engine: {
+    oscA: OscillatorNode;
+    oscB: OscillatorNode;
+    filter: BiquadFilterNode;
+    gain: GainNode;
+  } | null = null;
+
+  /** Procedural engine voice: two detuned oscillators through a lowpass. */
+  engineStart(): void {
+    this.ensure();
+    if (!this.ctx || !this.master || this.engine) return;
+    const oscA = this.ctx.createOscillator();
+    oscA.type = 'sawtooth';
+    oscA.frequency.value = 42;
+    const oscB = this.ctx.createOscillator();
+    oscB.type = 'square';
+    oscB.frequency.value = 85;
+    const filter = this.ctx.createBiquadFilter();
+    filter.type = 'lowpass';
+    filter.frequency.value = 340;
+    filter.Q.value = 1.1;
+    const gain = this.ctx.createGain();
+    gain.gain.value = 0.0001;
+    oscA.connect(filter);
+    oscB.connect(filter);
+    filter.connect(gain).connect(this.master);
+    oscA.start();
+    oscB.start();
+    this.engine = { oscA, oscB, filter, gain };
+  }
+
+  /** Pitch/gain follow rpm (0..1) and throttle — derived from real velocity. */
+  engineUpdate(rpmN: number, throttle: number): void {
+    if (!this.engine || !this.ctx) return;
+    const t = this.ctx.currentTime;
+    const f = 42 + rpmN * 105;
+    this.engine.oscA.frequency.setTargetAtTime(f, t, 0.04);
+    this.engine.oscB.frequency.setTargetAtTime(f * 2.02, t, 0.04);
+    this.engine.filter.frequency.setTargetAtTime(320 + rpmN * 2400 + throttle * 500, t, 0.06);
+    this.engine.gain.gain.setTargetAtTime(0.04 + throttle * 0.11 + rpmN * 0.03, t, 0.09);
+  }
+
+  engineStop(): void {
+    const e = this.engine;
+    if (!e || !this.ctx) return;
+    this.engine = null;
+    const t = this.ctx.currentTime;
+    e.gain.gain.setTargetAtTime(0.0001, t, 0.08);
+    try {
+      e.oscA.stop(t + 0.4);
+      e.oscB.stop(t + 0.4);
+    } catch {
+      /* already stopped */
+    }
+  }
+
+  /** Tire screech: bandpassed noise burst, strength 0..1. */
+  skid(strength: number): void {
+    this.ensure();
+    if (!this.ctx || !this.master || !this.noiseBuf) return;
+    const t = this.ctx.currentTime;
+    const src = this.ctx.createBufferSource();
+    src.buffer = this.noiseBuf;
+    src.loop = true;
+    const bp = this.ctx.createBiquadFilter();
+    bp.type = 'bandpass';
+    bp.frequency.value = 950;
+    bp.Q.value = 2.2;
+    const env = this.ctx.createGain();
+    env.gain.setValueAtTime(0.05 + strength * 0.14, t);
+    env.gain.exponentialRampToValueAtTime(0.0001, t + 0.22);
+    src.connect(bp).connect(env).connect(this.master);
+    src.start(t);
+    src.stop(t + 0.24);
+  }
+
+  /** Low crash / hard-brake thud. */
+  thud(): void {
+    this.ensure();
+    if (!this.ctx || !this.master || !this.noiseBuf) return;
+    const t = this.ctx.currentTime;
+    const src = this.ctx.createBufferSource();
+    src.buffer = this.noiseBuf;
+    const lp = this.ctx.createBiquadFilter();
+    lp.type = 'lowpass';
+    lp.frequency.value = 240;
+    const env = this.ctx.createGain();
+    env.gain.setValueAtTime(0.3, t);
+    env.gain.exponentialRampToValueAtTime(0.0001, t + 0.16);
+    src.connect(lp).connect(env).connect(this.master);
+    src.start(t);
+  }
+
   dispose(): void {
     this.stopMusic();
     if (this.ctx) void this.ctx.close();

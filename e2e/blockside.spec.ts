@@ -31,14 +31,22 @@ test('BLOCKSIDE boots into a playable city without console errors', async ({ pag
   await page.waitForTimeout(1500);
 
   // Actual gameplay verification: walking must move the player west (W with
-  // the spawn camera facing downtown).
+  // the spawn camera facing downtown). Condition-based wait — robust against
+  // headless software-rendering framerates (dt is clamped per frame).
   const readPos = () =>
     page.evaluate(
       () => (window as unknown as DebugHook).__BLOCKSIDE_DEBUG__!.getPosition(),
     );
   const before = await readPos();
   await page.keyboard.down('w');
-  await page.waitForTimeout(1500);
+  await page.waitForFunction(
+    (b) => {
+      const p = (window as unknown as DebugHook).__BLOCKSIDE_DEBUG__!.getPosition();
+      return Math.hypot(p[0] - b[0], p[2] - b[2]) > 1.5;
+    },
+    before,
+    { timeout: 20000 },
+  );
   await page.keyboard.up('w');
   const after = await readPos();
 

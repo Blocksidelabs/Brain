@@ -66,6 +66,38 @@ export class PhysicsManager {
     return { body, collider, controller };
   }
 
+  /**
+   * Dynamic chassis for a raycast-suspension vehicle. The collider is lifted
+   * above the body origin so the centre of mass sits low (stability), and
+   * CCD keeps fast cars from tunneling through thin walls.
+   */
+  createVehicleBody(
+    x: number,
+    y: number,
+    z: number,
+    half: Vec3,
+    colliderLift: number,
+    mass: number,
+  ): RAPIER.RigidBody {
+    const body = this.world.createRigidBody(
+      RAPIER.RigidBodyDesc.dynamic()
+        .setTranslation(x, y, z)
+        .setLinearDamping(0.05)
+        .setAngularDamping(0.65)
+        .setCcdEnabled(true),
+    );
+    const collider = this.world.createCollider(
+      RAPIER.ColliderDesc.cuboid(half.x, half.y, half.z)
+        .setTranslation(0, colliderLift, 0)
+        .setMass(mass)
+        .setFriction(0.4)
+        .setRestitution(0.05),
+      body,
+    );
+    void collider;
+    return body;
+  }
+
   /** Distance to the first collider hit along a normalized ray, or null. */
   rayDistance(origin: Vec3, dir: Vec3, maxToi: number, excludeBody?: RAPIER.RigidBody): number | null {
     const ray = new RAPIER.Ray(origin, dir);

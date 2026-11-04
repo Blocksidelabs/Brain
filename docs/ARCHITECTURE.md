@@ -96,3 +96,32 @@ serializable layout, and the composition root is the single place where
 simulations advance. When Colyseus arrives, an authoritative server will own
 state transitions (money, missions, vehicles) while clients send inputs —
 the client-side architecture already isolates those concerns behind systems.
+
+## Vehicles (Phase 3)
+
+`src/game/vehicles/` — `VehicleManager` owns spawning, enter/exit, input
+routing, HUD data and audio; `Vehicle` is one car (physics + visuals);
+`vehicleTypes.ts` holds pure, unit-tested data; `vehicleModels.ts` builds
+procedural models from cached templates (clone shares geometry/materials).
+
+**Physics model.** Rapier's JS bindings expose no vehicle controller, so
+each car is a classic raycast-suspension vehicle on a real dynamic rigid
+body (CCD enabled, collider lifted for a low center of mass):
+
+1. Four downward rays from chassis anchor points feed a spring/damper
+   (`F = k·compression + c·compressionRate`, clamped), applied as impulses
+   at the anchors — real suspension travel, weight transfer, body roll.
+2. Per grounded wheel, tire forces are applied at the ground contact point:
+   lateral slip is killed with a friction-capped impulse (load-scaled,
+   reduced on the rear axle during handbrake → slides), longitudinal force
+   carries engine (speed-falloff), reverse, brakes (direction-safe clamped)
+   and rolling resistance.
+3. Steering rotates the front wheel contact frames; steer range tightens
+   with speed. Damage is a Δv-based foundation (crashes reduce condition and
+   engine efficiency); an overturned car auto-rights itself.
+
+Parked cars rely on Rapier sleeping: a settled car applies no forces and
+casts no rays, so five parked vehicles are effectively free. Fuel drains
+while throttling (engine cuts at empty — foundation). GLTF/GLB models can
+later replace the procedural builders behind the same `VehicleModel`
+interface without touching physics.

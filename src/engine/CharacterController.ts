@@ -117,6 +117,36 @@ export class CharacterController {
     this.group.visible = v;
   }
 
+  /** Park the character while driving (body disabled, model hidden). */
+  disableForVehicle(): void {
+    this.actor.body.setEnabled(false);
+    this.group.visible = false;
+  }
+
+  /** Restore the character at a world position after leaving a vehicle. */
+  enableFromVehicle(pos: { x: number; y: number; z: number }, yaw: number): void {
+    const y = Math.max(0.05, pos.y);
+    this.actor.body.setEnabled(true);
+    this.actor.body.setTranslation({ x: pos.x, y, z: pos.z }, true);
+    this.vy = 0;
+    this.velX = 0;
+    this.velZ = 0;
+    this.grounded = true;
+    this.yaw = yaw;
+    this.pos.set(pos.x, y, pos.z);
+    this.group.position.copy(this.pos);
+    this.group.rotation.y = yaw;
+    this.group.visible = true;
+  }
+
+  /** Test/debug helper: instant reposition (used by the e2e suite). */
+  teleport(x: number, z: number): void {
+    this.actor.body.setTranslation({ x, y: 0.05, z }, true);
+    this.pos.set(x, 0.05, z);
+    this.group.position.set(x, 0.05, z);
+    this.vy = 0;
+  }
+
   /** One simulation tick: input -> velocity -> kinematic move -> animation. */
   update(dt: number, input: InputManager, camYaw: number): void {
     const fwd = (input.isDown('forward') ? 1 : 0) - (input.isDown('back') ? 1 : 0);

@@ -512,6 +512,123 @@ button {
 
 .loading-sub { font-size: 12px; letter-spacing: 0.2em; color: var(--text-dim); }
 
+/* ---------- driving HUD (Phase 3) ---------- */
+.drive-hud {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 10px;
+  min-width: 240px;
+  padding: 12px 16px;
+  background: var(--panel);
+  border: 1px solid var(--panel-border);
+  border-radius: 10px;
+  backdrop-filter: blur(6px);
+}
+
+.drive-name {
+  font-family: var(--font-head);
+  font-size: 12px;
+  letter-spacing: 0.24em;
+  color: var(--cyan);
+  text-shadow: 0 0 8px rgba(53, 224, 255, 0.6);
+}
+
+.drive-main {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+
+.drive-speed {
+  font-family: var(--font-head);
+  font-size: 42px;
+  line-height: 1;
+  min-width: 96px;
+  text-align: right;
+}
+
+.drive-side {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.drive-unit {
+  font-size: 10px;
+  letter-spacing: 0.28em;
+  color: var(--text-dim);
+}
+
+.drive-gear {
+  font-family: var(--font-head);
+  font-size: 20px;
+  color: #baffd9;
+  text-shadow: 0 0 10px rgba(46, 230, 168, 0.6);
+}
+
+.drive-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.meter {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.meter-label {
+  font-size: 9px;
+  letter-spacing: 0.22em;
+  color: var(--text-dim);
+  width: 34px;
+}
+
+.meter-track {
+  flex: 1;
+  height: 5px;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.08);
+  overflow: hidden;
+}
+
+.meter-fill {
+  height: 100%;
+  transition: width 0.12s linear;
+}
+
+.meter-rpm { background: linear-gradient(90deg, var(--purple), var(--pink)); box-shadow: 0 0 6px rgba(255, 45, 149, 0.6); }
+.meter-fuel { background: linear-gradient(90deg, #1f8f6e, #2ee6a8); box-shadow: 0 0 6px rgba(46, 230, 168, 0.5); }
+.meter-cond { background: linear-gradient(90deg, #2277a8, #4dc9ff); box-shadow: 0 0 6px rgba(77, 201, 255, 0.5); }
+
+.drive-flags {
+  display: flex;
+  gap: 8px;
+}
+
+.flag {
+  font-family: var(--font-head);
+  font-size: 9px;
+  letter-spacing: 0.18em;
+  padding: 3px 8px;
+  border-radius: 5px;
+  border: 1px solid rgba(157, 77, 221, 0.35);
+  color: var(--text-dim);
+}
+
+.flag.on {
+  color: #ffd6ec;
+  border-color: var(--pink);
+  box-shadow: 0 0 10px rgba(255, 45, 149, 0.5);
+}
+
+.flag.locked {
+  opacity: 0.55;
+  border-style: dashed;
+}
+
 /* ---------- accessibility ---------- */
 @media (prefers-reduced-motion: reduce) {
   * {

@@ -11,6 +11,17 @@ export interface GameSettings {
   invertY: boolean;
 }
 
+export interface VehicleHud {
+  name: string;
+  speedKmh: number;
+  gear: string;
+  rpm: number;
+  fuel: number;
+  condition: number;
+  handbrake: boolean;
+  nitroLocked: boolean;
+}
+
 export interface HudState {
   zone: string;
   clock: string;
@@ -18,6 +29,7 @@ export interface HudState {
   money: number;
   fps: number;
   prompt: string | null;
+  vehicle: VehicleHud | null;
 }
 
 export interface BlocksideState {
@@ -54,7 +66,7 @@ let state: BlocksideState = {
   screen: 'menu',
   loading: false,
   settings: loadSettings(),
-  hud: { zone: '—', clock: '—', health: 100, money: 0, fps: 0, prompt: null },
+  hud: { zone: '—', clock: '—', health: 100, money: 0, fps: 0, prompt: null, vehicle: null },
   zoneBanner: null,
 };
 

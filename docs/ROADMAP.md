@@ -7,8 +7,8 @@ one passes verification.
 | ----- | ------------------------------------------------------- | -------------- |
 | 0     | Repository audit & architecture setup                    | ✅ Complete     |
 | 1     | Playable 3D city (world, character, cameras, HUD)        | ✅ Complete     |
-| 2     | Character polish: camera collision hardening, rebinding  | 🔜 Next         |
-| 3     | Vehicle system: driving physics, enter/exit, vehicle HUD | ⏳ Planned      |
+| 2     | Character polish: camera collision hardening, rebinding  | ◐ Partial (camera hardening shipped in Phase 1; rebinding pending) |
+| 3     | Vehicles: driving physics, enter/exit, vehicle HUD/audio | ✅ Complete     |
 | 4     | Environment life: pedestrian NPCs, traffic, activation   | ⏳ Planned      |
 | 5     | Missions: objectives, markers, rewards, history          | ⏳ Planned      |
 | 6     | Backend & database: Node/Colyseus, PostgreSQL + Prisma   | ⏳ Planned      |
@@ -34,6 +34,23 @@ one passes verification.
 - Procedural synthwave radio (original WebAudio composition).
 - Tests: Vitest units (city determinism/layout, zones, math, store),
   Playwright boot smoke; production build verified.
+
+## Phase 3 — done
+- Raycast-suspension vehicles on real Rapier dynamic bodies (see
+  ARCHITECTURE.md for the physics model).
+- Three original cars: VESPER GT coupe (neon underglow), AERO-9 supercar
+  (AWD, big wing), TERRA-X SUV (soft suspension, heavy) — procedural models
+  via template+clone sharing.
+- Enter/exit with proximity prompts, safe-door search on exit, gated at speed.
+- Driving cameras: chase with steering lean + collision, cockpit with
+  dashboard/steering wheel; walking cameras untouched.
+- Driving HUD: real km/h, gear/RPM (derived), fuel, condition, handbrake,
+  nitro slot (locked).
+- Procedural engine (rpm-pitched), tire screech, crash thuds.
+- Five parked vehicles on validated roadside spawns; sleeping bodies cost
+  ~nothing when parked; overturn auto-reset; damage foundation.
+- Tests: vehicle spec/drivetrain/spawn units + full drive-loop e2e
+  (enter → drive → steer → handbrake → cameras → exit → walk) with screenshot.
 
 ## Known Phase 1 limitations (honest list)
 - Crouch adjusts speed/pose/camera but the capsule height stays constant

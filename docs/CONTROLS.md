@@ -26,8 +26,27 @@
 - If your OS requests reduced motion, camera bob and UI animations are
   disabled automatically.
 
+## Driving (Phase 3)
+
+Walk up to any parked vehicle — an interaction prompt appears — then:
+
+| Input            | Action                                        |
+| ---------------- | --------------------------------------------- |
+| `E`              | Enter the nearest vehicle / exit (slow down first — under ~22 km/h) |
+| `W`              | Accelerate                                    |
+| `S`              | Brake; keeps braking to a stop, then reverses |
+| `A` / `D`        | Steer left / right (range tightens with speed)|
+| `SPACE`          | Handbrake (locks the rear axle → slides)      |
+| `V`              | Third-person chase ⇄ cockpit camera           |
+| Mouse wheel      | Chase camera distance                         |
+| `SHIFT`          | Nitro — **foundation only**, disabled until the upgrade phase |
+
+The driving HUD shows real speed (from vehicle velocity), gear, RPM, fuel,
+vehicle condition, handbrake state and the nitro slot. Crashing reduces
+condition; engine efficiency drops with damage. An overturned vehicle
+auto-rights itself after a couple of seconds.
+
 ## Planned (later phases)
 
-- Vehicles: `W/S` accelerate/brake-reverse, `A/D` steer, `SPACE` handbrake,
-  `E` enter/exit, `V` camera — Phase 3.
-- Full controller support and key rebinding — Phase 2/3 polish.
+- Full controller support and key rebinding — Phase 2 polish.
+- Mission markers on the minimap — Phase 5.

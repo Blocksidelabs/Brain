@@ -13,6 +13,9 @@ import { createMinimapDrawer } from './minimap';
 import { ZONE_DEFS, zoneAt } from './city/zones';
 import type { GameSettings, HudState } from '../state/store';
 import { drawMinimap, registerMinimapDrawer } from '../state/minimapRegistry';
+import { getState } from '../state/store';
+import { VehicleManager } from './vehicles/VehicleManager';
+import type { Vehicle } from './vehicles/Vehicle';
 
 export interface BlocksideHooks {
   getSettings: () => GameSettings;
@@ -42,6 +45,7 @@ export class BlocksideGame implements GameSystems {
   private currentZone = '';
   private hooks: BlocksideHooks;
   private reducedMotion: boolean;
+  private vehicles!: VehicleManager;
 
   constructor(hooks: BlocksideHooks, reducedMotion: boolean) {
     this.hooks = hooks;
@@ -70,6 +74,24 @@ export class BlocksideGame implements GameSystems {
     this.cam.reducedMotion = this.reducedMotion;
     this.cam.setSpawn(spawn.yaw);
     this.cam.setFar(preset.cameraFar);
+
+    // ---- vehicles (Phase 3) ----
+    this.vehicles = new VehicleManager(this.physics, this.scene, this.audio, this.cityData, {
+      onPrompt: (text) => this.hooks.onHud({ prompt: text }),
+      onHudVehicle: (vehicle) => this.hooks.onHud({ vehicle }),
+      onEnter: (vehicle: Vehicle) => {
+        this.player.disableForVehicle();
+        this.cam.setDriving(vehicle);
+        this.audio.engineStart();
+      },
+      onExit: (_vehicle: Vehicle, pos, yaw) => {
+        this.cam.setDriving(null);
+        this.cam.setSpawn(yaw);
+        this.player.enableFromVehicle(pos, yaw);
+        this.audio.engineStop();
+        this.hooks.onHud({ vehicle: null });
+      },
+    });
 
     // ---- static collision: ground, boundary walls, every building ----
     this.physics.addStaticBox({ x: 0, y: -0.5, z: 0 }, { x: 1800, y: 0.5, z: 1800 });
@@ -106,7 +128,16 @@ export class BlocksideGame implements GameSystems {
 
     // ---- test/debug hook (harmless in production, used by e2e) ----
     (window as unknown as { __BLOCKSIDE_DEBUG__?: unknown }).__BLOCKSIDE_DEBUG__ = {
-      getPosition: () => this.player.position.toArray(),
+      getPosition: () =>
+        (this.vehicles.isDriving()
+          ? this.vehicles.getActive()!.getPosition()
+          : this.player.position
+        ).toArray(),
+      getVehicleState: () => this.vehicles.getVehicleState(),
+      getPrompt: () => getState().hud.prompt,
+      debugTeleport: (x: number, z: number) => {
+        if (!this.vehicles.isDriving()) this.player.teleport(x, z);
+      },
     };
 
     // ---- HUD seed ----
@@ -122,22 +153,33 @@ export class BlocksideGame implements GameSystems {
     const wheel = this.input.consumeWheel();
     if (wheel !== 0) this.cam.zoom(wheel);
     if (this.input.wasPressed('cameraMode')) this.cam.toggleMode();
+    const interact = this.input.wasPressed('interact');
 
+    // vehicles apply their forces BEFORE the physics step…
+    this.vehicles.update(dt, this.input, this.player.position, interact);
     this.physics.step(dt);
-    this.player.update(dt, this.input, this.cam.yaw);
-    this.cam.update(dt, this.player.position, this.player.rigidBody);
-    this.player.setVisible(!this.cam.firstPerson);
+    // …and sync visuals/damage/resets AFTER it.
+    this.vehicles.postStep(dt);
 
-    this.world.update(dt, this.player.position);
-    this.marker.x = this.player.position.x;
-    this.marker.z = this.player.position.z;
+    const driving = this.vehicles.isDriving();
+    if (!driving) {
+      this.player.update(dt, this.input, this.cam.yaw);
+      this.player.setVisible(!this.cam.firstPerson);
+    }
+
+    const focus = driving ? this.vehicles.getActive()!.getPosition() : this.player.position;
+    this.cam.update(dt, this.player.position, this.player.rigidBody);
+
+    this.world.update(dt, focus);
+    this.marker.x = focus.x;
+    this.marker.z = focus.z;
     this.marker.yaw = this.cam.yaw;
     drawMinimap();
 
     this.hudTimer += dt;
     if (this.hudTimer >= 0.25) {
       this.hudTimer = 0;
-      const zone = ZONE_DEFS[zoneAt(this.player.position.x, this.player.position.z)];
+      const zone = ZONE_DEFS[zoneAt(focus.x, focus.z)];
       if (zone.label !== this.currentZone) {
         this.currentZone = zone.label;
         this.hooks.onHud({ zone: zone.label });
@@ -187,6 +229,7 @@ export class BlocksideGame implements GameSystems {
     registerMinimapDrawer(null);
     this.input.detach();
     this.audio.dispose();
+    this.vehicles.dispose();
     this.world.dispose();
     this.physics.dispose();
   }
