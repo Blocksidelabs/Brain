@@ -29,5 +29,11 @@ npm-debug.log*
 
 # Environment (never commit real secrets)
 .env
+.env.*
+!.env.example
 .env.local
 .env.*.local
+
+# Generated banner/marketing capture output
+banner-captures/
+Banners/

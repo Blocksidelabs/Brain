@@ -23,6 +23,7 @@ import { TrafficManager, type TrafficSnapshot } from './traffic/TrafficManager';
 import { buildPedNetwork, buildRoadGraph, TrafficLights } from './network/cityNetwork';
 import { setVehicleNight } from './vehicles/vehicleModels';
 import { POPULATION_CAPS } from '../engine/quality';
+import type { WeatherType } from './environment/WeatherManager';
 
 export interface BlocksideHooks {
   getSettings: () => GameSettings;
@@ -187,6 +188,23 @@ export class BlocksideGame implements GameSystems {
       },
       debugTeleport: (x: number, z: number) => {
         if (!this.vehicles.isDriving()) this.player.teleport(x, z);
+      },
+      debugSetWeather: (w: WeatherType) => {
+        this.world.weather.auto = false;
+        this.world.weather.setWeather(w);
+      },
+      debugGetWeather: () => ({
+        current: this.world.weather.current,
+        target: this.world.weather.target,
+        fog: this.world.weather.fogFactor,
+        wetness: this.world.weather.wetness,
+      }),
+      debugPhotoMode: (on: boolean) => {
+        this.cam.photoMode = on;
+      },
+      debugCameraPose: (x: number, y: number, z: number, lx: number, ly: number, lz: number) => {
+        this.cam.photoMode = true;
+        this.cam.setPhotoPose(x, y, z, lx, ly, lz);
       },
     };
 

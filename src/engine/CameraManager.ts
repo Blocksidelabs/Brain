@@ -38,6 +38,8 @@ export class CameraManager {
   sens = 1;
   invertY = false;
   reducedMotion = false;
+  /** Photo mode: freeze the rig so external tooling can place the camera (banner captures). */
+  photoMode = false;
   private physics: PhysicsManager;
   private drive: DrivingTarget | null = null;
   private driveOrbit = 0;
@@ -92,12 +94,19 @@ export class CameraManager {
     this.targetDist = this.mode === 'first' ? 0 : thirdDist;
   }
 
+  /** Place the camera directly (used with photoMode). */
+  setPhotoPose(x: number, y: number, z: number, lookX: number, lookY: number, lookZ: number): void {
+    this.camera.position.set(x, y, z);
+    this.camera.lookAt(lookX, lookY, lookZ);
+  }
+
   /** True once the rig has blended close enough to behave as first person. */
   get firstPerson(): boolean {
     return this.dist < 0.8;
   }
 
   update(dt: number, targetPos: THREE.Vector3, playerBody: RAPIER.RigidBody): void {
+    if (this.photoMode) return; // frozen for photo/banner capture
     if (this.drive) {
       this.updateDrive(dt);
       return;

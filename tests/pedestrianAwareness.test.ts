@@ -5,6 +5,12 @@ import { buildRoadGraph, buildPedNetwork, type TrafficLights } from '../src/game
 import { NPCManager } from '../src/game/npc/NPCManager';
 import type { PhysicsManager } from '../src/engine/PhysicsManager';
 
+// makeSignTexture paints via a DOM <canvas>; stub it so the TrafficManager spawn
+// path (which builds taxi models) can run in the node test environment.
+vi.mock('../src/game/city/textures', () => ({
+  makeSignTexture: vi.fn(() => ({ dispose: vi.fn() }) as unknown as THREE.CanvasTexture),
+}));
+
 // Mock PhysicsManager to avoid initializing Rapier WASM in unit tests
 const mockPhysics = {
   createKinematicBox: () => ({

@@ -15,7 +15,8 @@ describe('vehicle specs', () => {
     );
     for (const spec of Object.values(VEHICLE_SPECS)) {
       expect(spec.mass).toBeGreaterThan(spec.kind === 'moto' ? 250 : 800);
-      expect(spec.engineForce).toBeGreaterThan(3000);
+      // Motorcycles are deliberately tuned weaker than cars (class-aware floor).
+      expect(spec.engineForce).toBeGreaterThan(spec.kind === 'moto' ? 2000 : 6000);
       expect(spec.brakeForce).toBeGreaterThan(spec.engineForce * 0.5);
       expect(spec.maxSpeed).toBeGreaterThan(20);
       expect(spec.suspension.stiffness).toBeGreaterThan(20000);
