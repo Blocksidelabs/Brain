@@ -108,69 +108,85 @@ async function shoot(page, name, settleMs = 1200) {
 /* ------------------------------------------------------------------ */
 
 async function groupSunny(page) {
-  // 02 — explore: street canyon pointing into downtown
+  // 02 — explore: street canyon pointing into downtown, life on the street
   await setHour(page, 10);
-  await pose(page, [0.5, 2.2, -130, 0.5, 26, 220]);
+  await waitPopulation(page, { peds: 5, cars: 2 });
+  await pose(page, [6, 2.3, -93, 6, 24, 235]);
   await hideHud(page);
   await shoot(page, 'raw-02-explore.png');
 
-  // 03 — live your own story: default third-person cam behind the player
-  await teleport(page, 30, -20);
-  await sleep(1800);
+  // 03 — live your own story: photo pose behind the player at a downtown corner
+  await teleport(page, -9, -9);
+  await sleep(1500);
+  {
+    const p = await page.evaluate(() => window.__BLOCKSIDE_DEBUG__.getPosition());
+    await pose(page, [p[0] + 6, p[1] + 2.0, p[2] + 6, p[0] - 10, p[1] + 1.0, p[2] - 10]);
+  }
+  await sleep(900);
   await shoot(page, 'raw-03-story.png');
 
-  // 05 — a living city: elevated three-quarter over the downtown intersection
-  await teleport(page, 30, -8);
+  // 05 — a living city: camera above the road column, intersection below
+  await teleport(page, -4, 44);
   await waitPopulation(page, { peds: 6, cars: 3 });
-  await pose(page, [30, 24, 32, 0, 1.5, 0]);
+  await pose(page, [2, 24, 34, 0, 0.5, -10]);
   await sleep(900);
   await shoot(page, 'raw-05-living-city.png');
 
   // 09 — open-world freedom: high panorama over beachfront + highway + skyline
-  await setHour(page, 16.5);
+  await setHour(page, 17.9);
   await teleport(page, 300, 240);
   await pose(page, [430, 88, 250, -60, 6, -80]);
   await sleep(900);
   await shoot(page, 'raw-09-freedom.png');
 
-  // 01 — introduction: grand golden-hour panorama from over the ocean
-  await setHour(page, 6.2);
+  // 01a — introduction: golden-hour panorama from over the ocean (dusk)
+  await setHour(page, 18.0);
   await teleport(page, 320, 40);
-  await pose(page, [430, 64, 150, 40, 14, -70]);
+  await pose(page, [395, 60, 130, -40, 10, -40]);
   await sleep(900);
   await shoot(page, 'raw-01-introduction.png');
 
-  // 10 — the future: hero sunset shot over the coastal boulevard
+  // 01b — introduction alternate: dawn light over the city
+  await setHour(page, 6.4);
+  await sleep(900);
+  await shoot(page, 'raw-01b-dawn.png');
+
+  // 10 — the future: hero shot, sunset sky + city lights igniting
   await setHour(page, 18.3);
-  await pose(page, [396, 52, -130, -80, 12, 60]);
+  await pose(page, [396, 54, -130, -80, 16, 60]);
   await sleep(900);
   await shoot(page, 'raw-10-future.png');
 
-  // 08 — what's coming next: night boulevard, coupe in frame, skyline beyond
+  // 08 — what's coming next: night boulevard, coupe 3/4 in frame, neon district
   await setHour(page, 21.4);
-  await pose(page, [334, 3.4, 47, 60, 24, 10]);
+  await teleport(page, 320, 84);
+  await sleep(1000);
+  await pose(page, [326, 2.1, 38, 321.5, 0.9, 45.5]);
   await sleep(900);
   await shoot(page, 'raw-08-next.png');
 
-  // 06a/06b — day and night from the SAME vantage (blended into banner 06 later)
-  await pose(page, [372, 46, -30, 40, 16, 40]);
-  await setHour(page, 7.0);
+  // 06a/06b — golden hour and night along the beachfront (identical pose, blended later)
+  await pose(page, [334, 42, -170, 310, 14, 200]);
+  await setHour(page, 17.6);
   await sleep(900);
   await shoot(page, 'raw-06a-morning.png');
   await setHour(page, 21.8);
   await sleep(900);
   await shoot(page, 'raw-06b-night.png');
 
-  // 04b — parked VESPER GT beauty shot on the coastal boulevard at golden hour
-  await setHour(page, 18.3);
-  await teleport(page, 323, 44);
-  await sleep(1500);
-  await pose(page, [312, 1.5, 37, 323, 1.2, 44]);
+  // 04b — parked VESPER GT beauty shot on the coastal boulevard at sunset
+  await setHour(page, 18.0);
+  await teleport(page, 320, 84);
+  await sleep(1200);
+  await pose(page, [316.5, 1.6, 39.0, 323.2, 1.0, 44.6]);
   await sleep(900);
   await shoot(page, 'raw-04-wheel-parked.png');
 
-  // 04a — driving shot: enter the coupe, accelerate, follow-cam frame
-  await setHour(page, 18.4);
+  // 04a — driving shot: follow camera while the coupe cruises the boulevard
+  await page.evaluate(() => window.__BLOCKSIDE_DEBUG__.debugPhotoMode(false));
+  await setHour(page, 18.0);
+  await teleport(page, 323, 44);
+  await sleep(1000);
   await page.keyboard.press('e'); // enter vehicle
   await page.waitForFunction(
     () => window.__BLOCKSIDE_DEBUG__.getVehicleState().driving === true,
@@ -202,11 +218,12 @@ async function groupRain(page) {
   await waitWeather(page, 'rain');
   await waitWetness(page, 0.55);
   await setHour(page, 21.8);
-  await teleport(page, 120, 160);
+  await teleport(page, 0, 160);
   await sleep(2500);
-  await waitPopulation(page, { peds: 2, cars: 2, timeout: 45000 });
-  await pose(page, [2, 1.7, 214, 0, 8, 60]);
+  await waitPopulation(page, { peds: 3, cars: 2, timeout: 45000 });
+  await pose(page, [1.5, 1.7, 208, -6, 5, 140]);
   await sleep(900);
+  await hideHud(page);
   await shoot(page, 'raw-07-rain.png');
 }
 

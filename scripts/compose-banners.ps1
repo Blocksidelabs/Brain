@@ -51,33 +51,27 @@ $script:LogoImg = Load-Image (Join-Path $root 'Logo\Blockside Logo.png')
 $script:Face = New-Object System.Windows.Media.Typeface('Arial Black')
 
 function Measure-Text([string]$text, [double]$size, [double]$tracking) {
-    $ft = New-Object System.Windows.Media.FormattedText(
-        $text, [System.Globalization.CultureInfo]::CurrentCulture,
-        [System.Windows.FlowDirection]::LeftToRight, $script:Face, $size, 
-        (New-Solid $script:White), 1.0)
+    $brush = New-Solid $script:White
+    $ft = New-Object System.Windows.Media.FormattedText -ArgumentList @($text, [System.Globalization.CultureInfo]::CurrentCulture, [System.Windows.FlowDirection]::LeftToRight, $script:Face, $size, $brush, 1.0)
     return ($ft.Width + $tracking * [Math]::Max(0, $text.Length - 1))
 }
 
-/** Draws spaced, glowing ALL-CAPS text. haloColor draws the neon glow. */
+# Draws spaced, glowing ALL-CAPS text with a neon halo (official brand style).
 function Draw-GlowText([System.Windows.Media.DrawingContext]$dc, [string]$text,
     [double]$x, [double]$y, [double]$size, [double]$tracking,
-    [System.Windows.Media.Brush]$fill, [System.Windows.Media.Color]$haloColor,
-    [double]$haloWidth, [System.Windows.Media.Brush]$haloBrush) {
+    [System.Windows.Media.Brush]$fill, [System.Windows.Media.Brush]$haloBrush, [double]$haloWidth) {
 
     $pen = if ($haloWidth -gt 0) { New-Object System.Windows.Media.Pen($haloBrush, $haloWidth) } else { $null }
     $cursor = $x
     foreach ($ch in $text.ToCharArray()) {
         if ($ch -ne ' ') {
-            $ft = New-Object System.Windows.Media.FormattedText(
-                [string]$ch, [System.Globalization.CultureInfo]::CurrentCulture,
-                [System.Windows.FlowDirection]::LeftToRight, $script:Face, $size,
-                (New-Solid $script:White), 1.0)
+            $white = New-Solid $script:White
+            $ft = New-Object System.Windows.Media.FormattedText -ArgumentList @([string]$ch, [System.Globalization.CultureInfo]::CurrentCulture, [System.Windows.FlowDirection]::LeftToRight, $script:Face, $size, $white, 1.0)
             $geo = $ft.BuildGeometry([System.Windows.Point]::new(0, 0))
             $dc.PushTransform(New-Object System.Windows.Media.TranslateTransform($cursor, $y))
             if ($pen) { $dc.DrawGeometry($null, $pen, $geo) }
             $dc.DrawGeometry($fill, $null, $geo)
             $dc.Pop()
-        }
             $cursor += $ft.Width + $tracking
         } else {
             $cursor += $size * 0.34 + $tracking
