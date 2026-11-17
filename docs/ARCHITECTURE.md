@@ -97,6 +97,26 @@ simulations advance. When Colyseus arrives, an authoritative server will own
 state transitions (money, missions, vehicles) while clients send inputs —
 the client-side architecture already isolates those concerns behind systems.
 
+## Pedestrians & AI traffic (living city)
+
+`src/game/network/cityNetwork.ts` (pure, unit-tested) builds two graphs from
+the grid: a directed **road graph** (324 lane stop-points; every edge is a
+complete lane path with straight/left/right intersections and no U-turns,
+flagged signalized at interior intersections) and a **sidewalk network**
+(per-lot walking loops + painted-crosswalk links). `TrafficLights`
+alternates NS/EW phases with yellow; parity offsets intersections.
+
+`NPCManager` keeps a district-weighted pedestrian population around the
+player (caps per quality tier), spawns on sidewalk nodes 45–140 m away,
+despawns at 160 m and recycles rigs through a pool. Pedestrians walk with
+two-segment limb animation, separate from each other, sidestep the player,
+idle occasionally and are kinematic collision proxies (cars stop for them).
+
+`TrafficManager` runs kinematic AI cars over the road graph: right-hand
+lanes, red-light stopping with a braking curve, car-following gaps,
+turn slowdowns, yielding to the player's car and pedestrians. AI cars are
+kinematic boxes, so the player's dynamic car collides with them believably.
+
 ## Vehicles (Phase 3)
 
 `src/game/vehicles/` — `VehicleManager` owns spawning, enter/exit, input

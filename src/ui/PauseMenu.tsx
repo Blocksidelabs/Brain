@@ -9,6 +9,14 @@ export function PauseMenu({ onResume, onOpenSettings, onOpenControls, onExit }: 
   return (
     <div className="pause-overlay">
       <div className="pause-panel">
+        <img
+          className="pause-logo"
+          src="/branding/blockside-logo.png"
+          alt="BLOCKSIDE"
+          width={48}
+          height={48}
+          draggable={false}
+        />
         <h2 className="pause-title neon-pink">PAUSED</h2>
         <button className="btn btn-primary" onClick={onResume}>
           RESUME

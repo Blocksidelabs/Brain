@@ -15,7 +15,7 @@ describe('store', () => {
       screen: 'menu',
       loading: false,
       settings: { ...DEFAULT_SETTINGS },
-      hud: { zone: '—', clock: '—', health: 100, money: 0, fps: 0, prompt: null, vehicle: null },
+      hud: { zone: '—', clock: '—', weather: 'SUNNY', health: 100, money: 0, fps: 0, prompt: null, vehicle: null, mission: null },
       zoneBanner: null,
     });
   });

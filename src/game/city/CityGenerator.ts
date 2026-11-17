@@ -59,6 +59,7 @@ export interface CityData {
   palms: PalmSpec[];
   plaza: { x: number; z: number };
   park: { x: number; z: number };
+  gasStations: { x: number; z: number }[];
   spawn: { x: number; z: number; yaw: number };
 }
 
@@ -75,6 +76,7 @@ const TINTS: Record<ZoneId, string[]> = {
 
 export const PLAZA_LOT = { bx: 4, bz: 3 };
 export const PARK_LOT = { bx: 2, bz: 1 };
+export const GAS_LOT = { bx: 5, bz: 6 };
 
 function pickTint(rng: Rng, zone: ZoneId): string {
   return rngPick(rng, TINTS[zone]);
@@ -200,6 +202,7 @@ export function generateCity(seed = 1337): CityData {
     for (let bx = 0; bx < CITY.grid; bx++) {
       if (bx === PLAZA_LOT.bx && bz === PLAZA_LOT.bz) continue;
       if (bx === PARK_LOT.bx && bz === PARK_LOT.bz) continue;
+      if (bx === GAS_LOT.bx && bz === GAS_LOT.bz) continue;
       fillLot(rng, bx, bz, buildings, roofProps, palms);
     }
   }
@@ -273,6 +276,7 @@ export function generateCity(seed = 1337): CityData {
     palms,
     plaza: { x: plazaCx, z: plazaCz },
     park: { x: parkCx, z: parkCz },
+    gasStations: [{ x: blockCenter(GAS_LOT.bx), z: blockCenter(GAS_LOT.bz) }],
     spawn: { x: 314, z: 24, yaw: Math.PI / 2 },
   };
 }

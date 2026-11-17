@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { CITY } from '../../config/gameConfig';
 import { mulberry32, type Rng } from '../../engine/mathUtils';
-import { PARK_LOT, PLAZA_LOT } from './CityGenerator';
+import { GAS_LOT, PARK_LOT, PLAZA_LOT } from './CityGenerator';
 import { blockCenter, blockZone } from './zones';
 
 const SIZE = 4096;
@@ -189,6 +189,83 @@ export function buildGround(): THREE.Mesh {
   const kcz = blockCenter(PARK_LOT.bz);
   rect(kcx, kcz, 4, 52, '#3a3630');
   rect(kcx, kcz, 52, 4, '#3a3630');
+
+  // ---- street furniture paint: stalls, stop bars, arrows, joints, apron ----
+  const white80 = 'rgba(235,240,245,0.8)';
+  // parking stalls along the south edge of every non-special lot
+  for (let bz = 0; bz < 8; bz++) {
+    for (let bx = 0; bx < 8; bx++) {
+      const special =
+        (bx === PLAZA_LOT.bx && bz === PLAZA_LOT.bz) ||
+        (bx === PARK_LOT.bx && bz === PARK_LOT.bz) ||
+        (bx === GAS_LOT.bx && bz === GAS_LOT.bz);
+      if (special) continue;
+      const cx = blockCenter(bx);
+      const cz = blockCenter(bz);
+      for (let x = cx - 26; x <= cx + 26; x += 2.7) {
+        rect(x, cz + 27, 0.22, 4.6, 'rgba(225,230,235,0.4)');
+      }
+    }
+  }
+  // stop bars + lane arrows at every signalized intersection
+  const arrow = (ax: number, az: number, dx: number, dz: number) => {
+    ctx.save();
+    ctx.translate(px(ax), py(az));
+    ctx.rotate(Math.atan2(-dz, dx));
+    ctx.fillStyle = white80;
+    ctx.fillRect(-1.1 * ps(1), -0.18 * ps(1), 1.7 * ps(1), 0.36 * ps(1));
+    ctx.beginPath();
+    ctx.moveTo(0.5 * ps(1), -0.55 * ps(1));
+    ctx.lineTo(1.4 * ps(1), 0);
+    ctx.lineTo(0.5 * ps(1), 0.55 * ps(1));
+    ctx.closePath();
+    ctx.fill();
+    ctx.restore();
+  };
+  for (let kz = 1; kz <= 7; kz++) {
+    for (let kx = 1; kx <= 7; kx++) {
+      const x = ring0 + kx * CITY.pitch;
+      const z = ring0 + kz * CITY.pitch;
+      rect(x - 4, z - 7.6, 7.2, 0.5, white80);
+      rect(x + 0.8, z + 7.6, 7.2, 0.5, white80);
+      rect(x - 7.6, z + 0.8, 0.5, 7.2, white80);
+      rect(x + 7.6, z - 0.8, 0.5, 7.2, white80);
+      arrow(x - 4, z - 12.5, 0, 1);
+      arrow(x + 4, z + 12.5, 0, -1);
+      arrow(x - 12.5, z + 4, 1, 0);
+      arrow(x + 12.5, z - 4, -1, 0);
+    }
+  }
+  // sidewalk expansion joints
+  for (let bz = 0; bz < 8; bz++) {
+    for (let bx = 0; bx < 8; bx++) {
+      const cx = blockCenter(bx);
+      const cz = blockCenter(bz);
+      for (let x = cx - 30; x <= cx + 30; x += 2.5) {
+        rect(x, cz + 31.2, 0.15, 1.4, 'rgba(0,0,0,0.18)');
+        rect(x, cz - 31.2, 0.15, 1.4, 'rgba(0,0,0,0.18)');
+      }
+    }
+  }
+  // bus bays at the six shelter corners
+  for (const [kx, kz] of [
+    [4, 4],
+    [2, 6],
+    [7, 3],
+    [1, 1],
+    [5, 5],
+    [6, 2],
+  ] as const) {
+    const x = ring0 + kx * CITY.pitch;
+    const z = ring0 + kz * CITY.pitch;
+    rect(x + 16, z + 16, 3.2, 9, '#2b2f36');
+    rect(x + 14.6, z + 11.5, 0.35, 9, 'rgba(255,205,80,0.7)');
+  }
+  // gas station forecourt
+  const gasX = blockCenter(GAS_LOT.bx);
+  const gasZ = blockCenter(GAS_LOT.bz);
+  rect(gasX + 2, gasZ, 34, 26, '#30343b');
+  rect(gasX + 2, gasZ, 34, 0.4, 'rgba(255,205,80,0.6)');
 
   // ---- mesh ----
   const texture = new THREE.CanvasTexture(c);

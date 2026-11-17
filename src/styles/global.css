@@ -167,6 +167,24 @@ button {
   margin-top: -8px;
 }
 
+/* ---------- official brand logo ---------- */
+.menu-logo {
+  width: clamp(88px, 13vw, 128px);
+  height: auto;
+  border-radius: 24%;
+  box-shadow:
+    0 0 0 1px rgba(255, 45, 149, 0.35),
+    0 0 30px rgba(255, 45, 149, 0.4),
+    0 10px 32px rgba(0, 0, 0, 0.45);
+  animation: logo-float 5.5s ease-in-out infinite;
+  user-select: none;
+}
+
+@keyframes logo-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-6px); }
+}
+
 .menu-buttons {
   display: flex;
   flex-direction: column;
@@ -385,6 +403,18 @@ button {
   margin-bottom: 8px;
 }
 
+.pause-logo {
+  display: block;
+  width: 48px;
+  height: auto;
+  margin: 0 auto 8px;
+  border-radius: 24%;
+  box-shadow:
+    0 0 0 1px rgba(255, 45, 149, 0.3),
+    0 0 16px rgba(255, 45, 149, 0.35);
+  user-select: none;
+}
+
 .pause-hint {
   margin-top: 10px;
   text-align: center;
@@ -422,6 +452,21 @@ button {
   font-family: var(--font-head);
   font-size: 24px;
   letter-spacing: 0.3em;
+  text-align: center;
+}
+
+.settings-divider {
+  height: 1px;
+  background: rgba(255, 255, 255, 0.15);
+  margin: 16px 0;
+}
+
+.settings-subtitle {
+  font-family: var(--font-head);
+  color: var(--cyan);
+  font-size: 14px;
+  letter-spacing: 0.15em;
+  margin-bottom: 12px;
   text-align: center;
 }
 
@@ -511,6 +556,22 @@ button {
 }
 
 .loading-sub { font-size: 12px; letter-spacing: 0.2em; color: var(--text-dim); }
+
+.loading-logo {
+  width: 92px;
+  height: auto;
+  border-radius: 24%;
+  box-shadow:
+    0 0 0 1px rgba(255, 45, 149, 0.35),
+    0 0 26px rgba(255, 45, 149, 0.45);
+  animation: logo-pulse 1.6s ease-in-out infinite;
+  user-select: none;
+}
+
+@keyframes logo-pulse {
+  0%, 100% { opacity: 0.85; }
+  50% { opacity: 1; }
+}
 
 /* ---------- driving HUD (Phase 3) ---------- */
 .drive-hud {
@@ -627,6 +688,103 @@ button {
 .flag.locked {
   opacity: 0.55;
   border-style: dashed;
+}
+
+/* ---------- missions ---------- */
+.mission-panel {
+  margin-top: 12px;
+  padding: 10px 14px;
+  background: rgba(11, 16, 38, 0.8);
+  border-left: 3px solid var(--pink);
+  border-radius: 4px;
+  max-width: 300px;
+  backdrop-filter: blur(4px);
+}
+
+.mission-title {
+  font-family: var(--font-head);
+  font-size: 13px;
+  color: var(--pink);
+  letter-spacing: 0.1em;
+  margin-bottom: 4px;
+  text-transform: uppercase;
+}
+
+.mission-objective {
+  font-size: 13px;
+  color: #fff;
+  line-height: 1.3;
+}
+
+.mission-timer {
+  font-family: var(--font-head);
+  color: var(--orange);
+  font-size: 14px;
+  margin-top: 4px;
+}
+
+/* ---------- social links (header + footer) ---------- */
+.menu-socials {
+  position: absolute;
+  top: 20px;
+  right: 24px;
+  display: flex;
+  gap: 16px;
+  z-index: 30;
+}
+
+.menu-footer-socials {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 16px;
+  margin-bottom: 8px;
+}
+
+.social-link {
+  color: rgba(255, 255, 255, 0.6);
+  transition: color 0.2s ease, transform 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(0, 0, 0, 0.2);
+  backdrop-filter: blur(4px);
+}
+
+.social-link:hover {
+  color: var(--pink);
+  transform: translateY(-2px) scale(1.05);
+  border-color: rgba(255, 45, 149, 0.5);
+  box-shadow: 0 0 12px rgba(255, 45, 149, 0.3);
+}
+
+.social-icon-svg {
+  width: 18px;
+  height: 18px;
+  fill: currentColor;
+}
+
+/* responsive adjustments */
+@media (max-width: 768px) {
+  .menu-logo {
+    width: clamp(72px, 18vw, 96px);
+  }
+  .menu-socials {
+    top: 15px;
+    right: 15px;
+  }
+  .social-link {
+    width: 32px;
+    height: 32px;
+  }
+  .social-icon-svg {
+    width: 16px;
+    height: 16px;
+  }
 }
 
 /* ---------- accessibility ---------- */

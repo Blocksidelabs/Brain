@@ -98,6 +98,24 @@ export class PhysicsManager {
     return body;
   }
 
+  /** Pedestrian collision proxy (kinematic capsule). */
+  createKinematicCapsule(x: number, z: number): RAPIER.RigidBody {
+    const body = this.world.createRigidBody(
+      RAPIER.RigidBodyDesc.kinematicPositionBased().setTranslation(x, 0.9, z),
+    );
+    this.world.createCollider(RAPIER.ColliderDesc.capsule(0.55, 0.3), body);
+    return body;
+  }
+
+  /** AI vehicle collision proxy (kinematic box). */
+  createKinematicBox(x: number, y: number, z: number, half: Vec3): RAPIER.RigidBody {
+    const body = this.world.createRigidBody(
+      RAPIER.RigidBodyDesc.kinematicPositionBased().setTranslation(x, y, z),
+    );
+    this.world.createCollider(RAPIER.ColliderDesc.cuboid(half.x, half.y, half.z), body);
+    return body;
+  }
+
   /** Distance to the first collider hit along a normalized ray, or null. */
   rayDistance(origin: Vec3, dir: Vec3, maxToi: number, excludeBody?: RAPIER.RigidBody): number | null {
     const ray = new RAPIER.Ray(origin, dir);

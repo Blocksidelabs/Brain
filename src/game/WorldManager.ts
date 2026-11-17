@@ -1,11 +1,12 @@
 import * as THREE from 'three';
-import { DAYNIGHT } from '../config/gameConfig';
 import { clamp } from '../engine/mathUtils';
 import { disposeObject } from '../engine/dispose';
 import type { QualityPreset } from '../engine/quality';
 import type { CityData } from './city/CityGenerator';
 import { buildCity, type CityBuild } from './city/CityBuilder';
 import { makeGlowTexture } from './city/textures';
+import { TimeManager } from './environment/TimeManager';
+import { WeatherManager } from './environment/WeatherManager';
 
 const NIGHT_SKY = new THREE.Color('#0a0c1e');
 const DAY_SKY = new THREE.Color('#69b7e6');
@@ -23,7 +24,8 @@ const TMP_POS = new THREE.Vector3();
 
 /** Owns sky, fog, lights, the day/night cycle and the built city. */
 export class WorldManager {
-  timeOfDay: number = DAYNIGHT.startHour;
+  time = new TimeManager();
+  weather!: WeatherManager;
   night = 0;
   private elapsed = 0;
   private scene: THREE.Scene;
@@ -36,9 +38,12 @@ export class WorldManager {
   private stars: THREE.Points;
   private sunSprite: THREE.Sprite;
   private moonSprite: THREE.Sprite;
+  private sky!: THREE.Mesh;
+  private skyMat!: THREE.ShaderMaterial;
 
   constructor(scene: THREE.Scene, data: CityData) {
     this.scene = scene;
+    this.weather = new WeatherManager(scene);
     this.fog = new THREE.FogExp2(0x0a0c1e, this.baseFogDensity);
     scene.fog = this.fog;
     scene.background = new THREE.Color(0x0a0c1e);
@@ -113,14 +118,55 @@ export class WorldManager {
     );
     this.moonSprite.scale.setScalar(80);
     scene.add(this.sunSprite, this.moonSprite);
+
+    // gradient sky dome with an in-shader sun disc (follows the player)
+    this.skyMat = new THREE.ShaderMaterial({
+      side: THREE.BackSide,
+      depthWrite: false,
+      fog: false,
+      uniforms: {
+        uZenith: { value: new THREE.Color(0x0a0c1e) },
+        uHorizon: { value: new THREE.Color(0x0a0c1e) },
+        uSunDir: { value: new THREE.Vector3(0, 1, 0) },
+        uSunColor: { value: new THREE.Color(1, 0.72, 0.42) },
+        uSunI: { value: 1 },
+      },
+      vertexShader: /* glsl */ `
+        varying vec3 vDir;
+        void main() {
+          vDir = normalize(position);
+          gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+        }
+      `,
+      fragmentShader: /* glsl */ `
+        uniform vec3 uZenith;
+        uniform vec3 uHorizon;
+        uniform vec3 uSunDir;
+        uniform vec3 uSunColor;
+        uniform float uSunI;
+        varying vec3 vDir;
+        void main() {
+          float h = clamp(vDir.y, 0.0, 1.0);
+          vec3 col = mix(uHorizon, uZenith, pow(h, 0.55));
+          float sunAmt = max(dot(normalize(vDir), normalize(uSunDir)), 0.0);
+          col += uSunColor * (pow(sunAmt, 900.0) * 2.4 + pow(sunAmt, 10.0) * 0.22) * uSunI;
+          gl_FragColor = vec4(col, 1.0);
+        }
+      `,
+    });
+    this.sky = new THREE.Mesh(new THREE.SphereGeometry(450, 24, 14), this.skyMat);
+    this.sky.frustumCulled = false;
+    this.sky.renderOrder = -1;
+    scene.add(this.sky);
   }
 
   /** Advance the day/night cycle, drive lights and the city's emissive systems. */
   update(dt: number, playerPos: THREE.Vector3): void {
-    this.timeOfDay = (this.timeOfDay + (dt * 24) / DAYNIGHT.cycleSeconds) % 24;
+    this.time.update(dt);
     this.elapsed += dt;
+    const t = this.time.time;
 
-    const ang = ((this.timeOfDay - 6) / 24) * Math.PI * 2;
+    const ang = ((t - 6) / 24) * Math.PI * 2;
     const sunH = Math.sin(ang);
     const day = clamp(sunH * 2.2 + 0.08, 0, 1);
     const night = 1 - clamp((sunH + 0.14) * 3.6, 0, 1);
@@ -131,7 +177,7 @@ export class WorldManager {
     this.fog.color.copy(NIGHT_FOG).lerp(DAY_FOG, day).lerp(DUSK_FOG, dusk * 0.6);
     this.fog.density = this.baseFogDensity * (1 + night * 0.3);
 
-    this.hemi.intensity = 0.3 + day * 0.85;
+    this.hemi.intensity = 0.42 + day * 0.85;
     this.hemi.color.copy(HEMI_NIGHT).lerp(HEMI_DAY, day);
 
     if (sunH > 0) {
@@ -141,11 +187,26 @@ export class WorldManager {
     } else {
       TMP_DIR.set(-Math.cos(ang) * 0.9, Math.max(-sunH, 0.05), -0.35).normalize();
       this.sun.color.copy(MOON_COLOR);
-      this.sun.intensity = night * 0.6;
+      this.sun.intensity = night * 0.85;
     }
+    // Weather System Integration
+    this.weather.update(dt, playerPos, night);    // Apply weather modifiers to lighting and fog
+    this.weather.applyToEnvironment(this.fog, this.hemi);
+    if (this.weather.current === 'rain' || this.weather.current === 'storm') {
+        this.sun.intensity *= 0.3;
+    }
+
     this.sun.position.copy(playerPos).addScaledVector(TMP_DIR, 160);
     this.sunTarget.position.copy(playerPos);
     this.sunTarget.updateMatrixWorld();
+
+    // sky dome follows the player; sun disc only while the sun is up
+    this.sky.position.copy(playerPos);
+    const su = this.skyMat.uniforms;
+    (su.uZenith.value as THREE.Color).copy(this.scene.background as THREE.Color);
+    (su.uHorizon.value as THREE.Color).copy(this.fog.color);
+    (su.uSunDir.value as THREE.Vector3).copy(TMP_DIR);
+    su.uSunI.value = sunH > 0 ? clamp(day * 2.2, 0, 1) : 0;
 
     (this.stars.material as THREE.PointsMaterial).opacity = night * 0.9;
 
@@ -157,6 +218,7 @@ export class WorldManager {
     (this.moonSprite.material as THREE.SpriteMaterial).opacity = night;
 
     this.cityBuild.update(dt, night, this.elapsed);
+    this.cityBuild.setWetness(this.weather.wetness);
   }
 
   applyQuality(q: QualityPreset): void {
@@ -173,9 +235,15 @@ export class WorldManager {
 
   /** In-game clock as HH:MM (24h). */
   clockString(): string {
-    const h = Math.floor(this.timeOfDay);
-    const m = Math.floor((this.timeOfDay - h) * 60);
-    return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+    return this.time.clockString();
+  }
+
+  get timeOfDay(): number {
+    return this.time.time;
+  }
+
+  set timeOfDay(h: number) {
+    this.time.setHour(h);
   }
 
   dispose(): void {

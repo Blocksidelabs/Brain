@@ -1,0 +1,2 @@
+# Note: Enable "Force HTTPS" in the Hostinger control panel (hPanel) 
+# to avoid potential redirect loops with their SSL proxy.

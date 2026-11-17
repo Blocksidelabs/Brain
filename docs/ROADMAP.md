@@ -9,8 +9,9 @@ one passes verification.
 | 1     | Playable 3D city (world, character, cameras, HUD)        | ✅ Complete     |
 | 2     | Character polish: camera collision hardening, rebinding  | ◐ Partial (camera hardening shipped in Phase 1; rebinding pending) |
 | 3     | Vehicles: driving physics, enter/exit, vehicle HUD/audio | ✅ Complete     |
-| 4     | Environment life: pedestrian NPCs, traffic, activation   | ⏳ Planned      |
-| 5     | Missions: objectives, markers, rewards, history          | ⏳ Planned      |
+| 4     | Environment life: pedestrian NPCs, traffic, activation   | ✅ Complete     |
+| 4b    | Visual overhaul: detailed buildings, streetscape, sky, living-city AI | ✅ Complete |
+| 5     | Missions: objectives, markers, rewards, history          | ✅ Complete (Core Framework) |
 | 6     | Backend & database: Node/Colyseus, PostgreSQL + Prisma   | ⏳ Planned      |
 | 7     | Multiplayer: rooms, sync, chat, profiles                 | ⏳ Planned      |
 | 8     | Player economy & properties (server-authoritative)       | ⏳ Planned      |

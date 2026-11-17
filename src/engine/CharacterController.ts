@@ -32,12 +32,18 @@ export class CharacterController {
   private torso: THREE.Mesh;
   private head: THREE.Mesh;
   private visor: THREE.Mesh;
-  private armL: THREE.Mesh;
-  private armR: THREE.Mesh;
-  private legL: THREE.Mesh;
-  private legR: THREE.Mesh;
+  private hips: THREE.Mesh;
+  private armL: THREE.Group;
+  private armR: THREE.Group;
+  private legL: THREE.Group;
+  private legR: THREE.Group;
+  private elbowL: THREE.Group;
+  private elbowR: THREE.Group;
+  private kneeL: THREE.Group;
+  private kneeR: THREE.Group;
   private poseSwing = 0;
   private poseCrouch = 0;
+  private idleT = 0;
 
   constructor(
     physics: PhysicsManager,
@@ -49,43 +55,101 @@ export class CharacterController {
     this.actor = physics.createCharacter(spawn.x, 0.05, spawn.z);
     this.pos.set(spawn.x, 0.05, spawn.z);
 
-    const jacket = new THREE.MeshStandardMaterial({ color: 0x1b1e2c, roughness: 0.7 });
+    const jacket = new THREE.MeshStandardMaterial({ color: 0x1b1e2c, roughness: 0.72 });
     const skin = new THREE.MeshStandardMaterial({ color: 0xd8a37a, roughness: 0.6 });
-    const neon = new THREE.MeshStandardMaterial({
-      color: 0x0a2030,
+    const hair = new THREE.MeshStandardMaterial({ color: 0x1a1210, roughness: 0.9 });
+    const jeans = new THREE.MeshStandardMaterial({ color: 0x2a3245, roughness: 0.85 });
+    const shoe = new THREE.MeshStandardMaterial({ color: 0x101218, roughness: 0.7 });
+    const shirt = new THREE.MeshStandardMaterial({
+      color: 0x35e0ff,
       emissive: 0x35e0ff,
-      emissiveIntensity: 1.6,
-      roughness: 0.4,
+      emissiveIntensity: 0.22,
+      roughness: 0.8,
     });
-    const jeans = new THREE.MeshStandardMaterial({ color: 0x232b3a, roughness: 0.8 });
 
-    this.torso = new THREE.Mesh(new THREE.CapsuleGeometry(0.26, 0.62, 4, 8), jacket);
-    this.torso.position.y = 1.02;
-    this.head = new THREE.Mesh(new THREE.SphereGeometry(0.17, 12, 12), skin);
+    const add = (mesh: THREE.Mesh, parent: THREE.Object3D): THREE.Mesh => {
+      mesh.castShadow = true;
+      parent.add(mesh);
+      return mesh;
+    };
+
+    // torso: chest + hips + neck (broader shoulders, flatter chest)
+    this.torso = add(new THREE.Mesh(new THREE.CapsuleGeometry(0.24, 0.5, 4, 10), jacket), this.group);
+    this.torso.position.y = 1.18;
+    this.torso.scale.set(1.15, 1, 0.8);
+    this.hips = add(new THREE.Mesh(new THREE.CapsuleGeometry(0.21, 0.14, 4, 8), jeans), this.group);
+    this.hips.position.y = 0.86;
+    const neck = add(new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.075, 0.1, 8), skin), this.group);
+    neck.position.y = 1.5;
+    const shirtPanel = add(new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.5, 0.06), shirt), this.group);
+    shirtPanel.position.set(0, 1.18, -0.17);
+    const belt = add(new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.07, 0.3), new THREE.MeshStandardMaterial({ color: 0x14161c, roughness: 0.5 })), this.group);
+    belt.position.y = 0.98;
+
+    // head + hair + sunglasses (hair/visor parented to the head)
+    this.head = add(new THREE.Mesh(new THREE.SphereGeometry(0.155, 14, 12), skin), this.group);
     this.head.position.y = 1.66;
-    this.visor = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.08, 0.14), neon);
-    this.visor.position.set(0, 1.66, -0.14);
+    this.head.scale.set(0.95, 1.05, 1);
+    const hairCap = new THREE.Mesh(new THREE.SphereGeometry(0.16, 12, 8, 0, Math.PI * 2, 0, Math.PI * 0.55), hair);
+    hairCap.position.set(0, 0.05, 0.02);
+    this.head.add(hairCap);
+    this.visor = new THREE.Mesh(new THREE.BoxGeometry(0.24, 0.055, 0.05), new THREE.MeshStandardMaterial({ color: 0x0a0a0c, roughness: 0.2 }));
+    this.visor.position.set(0, 0.02, -0.13);
+    this.head.add(this.visor);
 
-    const armGeo = new THREE.CapsuleGeometry(0.07, 0.5, 4, 8);
-    armGeo.translate(0, -0.3, 0);
-    this.armL = new THREE.Mesh(armGeo, jacket);
-    this.armL.position.set(0.36, 1.4, 0);
-    this.armL.rotation.z = 0.12;
-    this.armR = new THREE.Mesh(armGeo, jacket);
-    this.armR.position.set(-0.36, 1.4, 0);
-    this.armR.rotation.z = -0.12;
+    // arms: shoulder → upper arm → elbow → forearm → hand
+    const upperArmGeo = new THREE.CapsuleGeometry(0.062, 0.3, 4, 8);
+    upperArmGeo.translate(0, -0.17, 0);
+    const foreArmGeo = new THREE.CapsuleGeometry(0.055, 0.26, 4, 8);
+    foreArmGeo.translate(0, -0.16, 0);
+    const makeArm = (sx: number): { shoulder: THREE.Group; elbow: THREE.Group } => {
+      const shoulder = new THREE.Group();
+      shoulder.position.set(sx * 0.31, 1.42, 0);
+      shoulder.rotation.z = sx * -0.1;
+      add(new THREE.Mesh(upperArmGeo, jacket), shoulder);
+      const elbow = new THREE.Group();
+      elbow.position.set(0, -0.36, 0);
+      add(new THREE.Mesh(foreArmGeo, skin), elbow);
+      const hand = new THREE.Mesh(new THREE.SphereGeometry(0.055, 8, 8), skin);
+      hand.position.set(0, -0.34, 0);
+      elbow.add(hand);
+      shoulder.add(elbow);
+      this.group.add(shoulder);
+      return { shoulder, elbow };
+    };
+    const armLPair = makeArm(1);
+    this.armL = armLPair.shoulder;
+    this.elbowL = armLPair.elbow;
+    const armRPair = makeArm(-1);
+    this.armR = armRPair.shoulder;
+    this.elbowR = armRPair.elbow;
 
-    const legGeo = new THREE.CapsuleGeometry(0.09, 0.55, 4, 8);
-    legGeo.translate(0, -0.35, 0);
-    this.legL = new THREE.Mesh(legGeo, jeans);
-    this.legL.position.set(0.13, 0.88, 0);
-    this.legR = new THREE.Mesh(legGeo, jeans);
-    this.legR.position.set(-0.13, 0.88, 0);
+    // legs: hip → thigh → knee → shin → shoe
+    const thighGeo = new THREE.CapsuleGeometry(0.085, 0.34, 4, 8);
+    thighGeo.translate(0, -0.2, 0);
+    const shinGeo = new THREE.CapsuleGeometry(0.07, 0.32, 4, 8);
+    shinGeo.translate(0, -0.19, 0);
+    const makeLeg = (sx: number): { hip: THREE.Group; knee: THREE.Group } => {
+      const hip = new THREE.Group();
+      hip.position.set(sx * 0.12, 0.92, 0);
+      add(new THREE.Mesh(thighGeo, jeans), hip);
+      const knee = new THREE.Group();
+      knee.position.set(0, -0.42, 0);
+      add(new THREE.Mesh(shinGeo, jeans), knee);
+      const foot = new THREE.Mesh(new THREE.BoxGeometry(0.11, 0.08, 0.27), shoe);
+      foot.position.set(0, -0.4, -0.05);
+      knee.add(foot);
+      hip.add(knee);
+      this.group.add(hip);
+      return { hip, knee };
+    };
+    const legLPair = makeLeg(1);
+    this.legL = legLPair.hip;
+    this.kneeL = legLPair.knee;
+    const legRPair = makeLeg(-1);
+    this.legR = legRPair.hip;
+    this.kneeR = legRPair.knee;
 
-    for (const m of [this.torso, this.head, this.visor, this.armL, this.armR, this.legL, this.legR]) {
-      m.castShadow = true;
-    }
-    this.group.add(this.torso, this.head, this.visor, this.armL, this.armR, this.legL, this.legR);
     this.group.rotation.y = this.yaw;
   }
 
@@ -213,30 +277,54 @@ export class CharacterController {
   }
 
   private animate(dt: number, speedH: number, sprinting: boolean, crouching: boolean): void {
+    this.idleT += dt;
     this.poseCrouch = damp(this.poseCrouch, crouching ? 1 : 0, 12, dt);
     const moving = speedH > 0.4;
     if (moving && !this.reducedMotion) this.phase += speedH * dt * 1.9;
-    const swing = moving ? Math.sin(this.phase) * (sprinting ? 0.85 : 0.55) : 0;
+    const swing = moving ? Math.sin(this.phase) * (sprinting ? 0.82 : 0.52) : 0;
     this.poseSwing = damp(this.poseSwing, swing, 18, dt);
     const bob = moving && !this.reducedMotion ? Math.abs(Math.sin(this.phase)) * 0.05 : 0;
     const drop = this.poseCrouch * 0.34;
+    const breathe = Math.sin(this.idleT * 2.1) * 0.012;
 
-    this.torso.position.y = 1.02 - drop + bob;
-    this.torso.rotation.x = damp(this.torso.rotation.x, moving ? (sprinting ? 0.18 : 0.08) : 0, 10, dt);
-    this.head.position.y = 1.66 - drop * 1.15 + bob;
-    this.visor.position.y = this.head.position.y;
-    this.visor.position.z = -0.14 - this.poseCrouch * 0.04;
+    this.torso.position.y = 1.18 - drop + bob * 0.6 + (moving ? 0 : breathe);
+    this.torso.rotation.x =
+      damp(this.torso.rotation.x, moving ? (sprinting ? 0.24 : 0.1) : 0, 10, dt) + this.poseCrouch * 0.35;
+    this.hips.position.y = 0.86 - drop + bob * 0.6;
+    this.head.position.y = 1.66 - drop * 1.1 + bob * 0.6;
 
     if (this.grounded) {
-      this.armL.rotation.x = this.poseSwing;
-      this.armR.rotation.x = -this.poseSwing;
-      this.legL.rotation.x = -this.poseSwing * 0.9;
-      this.legR.rotation.x = this.poseSwing * 0.9;
+      const legSwing = this.poseSwing * 0.95;
+      this.legL.rotation.x = damp(this.legL.rotation.x, -legSwing - this.poseCrouch, 16, dt);
+      this.legR.rotation.x = damp(this.legR.rotation.x, legSwing - this.poseCrouch, 16, dt);
+      const bendL = 0.06 + Math.max(0, Math.sin(this.phase)) * 0.8 + this.poseCrouch * 1.6;
+      const bendR = 0.06 + Math.max(0, -Math.sin(this.phase)) * 0.8 + this.poseCrouch * 1.6;
+      this.kneeL.rotation.x = damp(this.kneeL.rotation.x, bendL, 16, dt);
+      this.kneeR.rotation.x = damp(this.kneeR.rotation.x, bendR, 16, dt);
+      this.armL.rotation.x = damp(this.armL.rotation.x, this.poseSwing * 0.85 + this.poseCrouch * 0.4, 16, dt);
+      this.armR.rotation.x = damp(this.armR.rotation.x, -this.poseSwing * 0.85 + this.poseCrouch * 0.4, 16, dt);
+      this.elbowL.rotation.x = damp(this.elbowL.rotation.x, -0.28 - Math.abs(this.poseSwing) * 0.5, 16, dt);
+      this.elbowR.rotation.x = damp(this.elbowR.rotation.x, -0.28 - Math.abs(this.poseSwing) * 0.5, 16, dt);
     } else {
-      this.armL.rotation.x = damp(this.armL.rotation.x, -0.7, 10, dt);
-      this.armR.rotation.x = damp(this.armR.rotation.x, -0.7, 10, dt);
-      this.legL.rotation.x = damp(this.legL.rotation.x, 0.45, 10, dt);
-      this.legR.rotation.x = damp(this.legR.rotation.x, -0.25, 10, dt);
+      this.legL.rotation.x = damp(this.legL.rotation.x, -0.55, 10, dt);
+      this.legR.rotation.x = damp(this.legR.rotation.x, 0.15, 10, dt);
+      this.kneeL.rotation.x = damp(this.kneeL.rotation.x, 1.25, 10, dt);
+      this.kneeR.rotation.x = damp(this.kneeR.rotation.x, 0.45, 10, dt);
+      this.armL.rotation.x = damp(this.armL.rotation.x, -0.85, 10, dt);
+      this.armR.rotation.x = damp(this.armR.rotation.x, -0.85, 10, dt);
+      this.elbowL.rotation.x = damp(this.elbowL.rotation.x, -0.7, 10, dt);
+      this.elbowR.rotation.x = damp(this.elbowR.rotation.x, -0.7, 10, dt);
+    }
+
+    if (!moving && this.grounded) {
+      const sway = Math.sin(this.idleT * 1.6) * 0.035;
+      this.armL.rotation.z = 0.06 + sway;
+      this.armR.rotation.z = -0.06 - sway;
+      this.torso.rotation.z = sway * 0.4;
+    } else {
+      this.armL.rotation.z = damp(this.armL.rotation.z, 0, 8, dt);
+      this.armR.rotation.z = damp(this.armR.rotation.z, 0, 8, dt);
+      this.torso.rotation.z = damp(this.torso.rotation.z, 0, 8, dt);
     }
   }
 }

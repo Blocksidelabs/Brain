@@ -276,6 +276,43 @@ export class AudioManager {
     src.start(t);
   }
 
+  private oceanGain: GainNode | null = null;
+  private cityGain: GainNode | null = null;
+  private ambienceReady = false;
+
+  /** Persistent ambience loops: ocean wash near the beach, city hum downtown. */
+  private ensureAmbience(): void {
+    this.ensure();
+    if (!this.ctx || !this.master || this.ambienceReady || !this.noiseBuf) return;
+    this.ambienceReady = true;
+    const master = this.master;
+    const loop = (freq: number, type: BiquadFilterType): GainNode | null => {
+      if (!this.ctx || !this.noiseBuf) return null;
+      const src = this.ctx.createBufferSource();
+      src.buffer = this.noiseBuf;
+      src.loop = true;
+      const f = this.ctx.createBiquadFilter();
+      f.type = type;
+      f.frequency.value = freq;
+      const g = this.ctx.createGain();
+      g.gain.value = 0;
+      src.connect(f).connect(g).connect(master);
+      src.start();
+      return g;
+    };
+    this.oceanGain = loop(420, 'lowpass');
+    this.cityGain = loop(150, 'lowpass');
+  }
+
+  setAmbience(ocean: number, city: number): void {
+    this.ensureAmbience();
+    if (this.ctx) {
+      const t = this.ctx.currentTime;
+      this.oceanGain?.gain.setTargetAtTime(ocean * 0.14, t, 0.5);
+      this.cityGain?.gain.setTargetAtTime(city * 0.05, t, 0.8);
+    }
+  }
+
   dispose(): void {
     this.stopMusic();
     if (this.ctx) void this.ctx.close();

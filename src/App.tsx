@@ -115,6 +115,14 @@ export default function App() {
       )}
       {s.loading && (
         <div className="loading-overlay">
+          <img
+            className="loading-logo"
+            src="/branding/blockside-logo.png"
+            alt="BLOCKSIDE"
+            width={96}
+            height={96}
+            draggable={false}
+          />
           <div className="loading-text neon-pink">LOADING THE CITY…</div>
           <div className="loading-sub">pouring neon into concrete</div>
         </div>

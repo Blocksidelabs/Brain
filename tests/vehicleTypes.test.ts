@@ -9,10 +9,12 @@ import {
 } from '../src/game/vehicles/vehicleTypes';
 
 describe('vehicle specs', () => {
-  it('defines all three original vehicles with sane physics values', () => {
-    expect(Object.keys(VEHICLE_SPECS).sort()).toEqual(['coupe', 'supercar', 'suv'].sort());
+  it('defines all seven original vehicles with sane physics values', () => {
+    expect(Object.keys(VEHICLE_SPECS).sort()).toEqual(
+      ['coupe', 'moto', 'sedan', 'supercar', 'suv', 'taxi', 'van'].sort(),
+    );
     for (const spec of Object.values(VEHICLE_SPECS)) {
-      expect(spec.mass).toBeGreaterThan(500);
+      expect(spec.mass).toBeGreaterThan(spec.kind === 'moto' ? 250 : 800);
       expect(spec.engineForce).toBeGreaterThan(3000);
       expect(spec.brakeForce).toBeGreaterThan(spec.engineForce * 0.5);
       expect(spec.maxSpeed).toBeGreaterThan(20);

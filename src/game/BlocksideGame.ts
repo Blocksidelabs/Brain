@@ -11,11 +11,18 @@ import { generateCity, type CityData } from './city/CityGenerator';
 import { WorldManager } from './WorldManager';
 import { createMinimapDrawer } from './minimap';
 import { ZONE_DEFS, zoneAt } from './city/zones';
-import type { GameSettings, HudState } from '../state/store';
+import type { GameSettings, HudState, MissionHud } from '../state/store';
 import { drawMinimap, registerMinimapDrawer } from '../state/minimapRegistry';
 import { getState } from '../state/store';
 import { VehicleManager } from './vehicles/VehicleManager';
 import type { Vehicle } from './vehicles/Vehicle';
+import { MissionManager } from './missions/MissionManager';
+import { EventBus } from '../engine/EventBus';
+import { NPCManager, type PedSnapshot } from './npc/NPCManager';
+import { TrafficManager, type TrafficSnapshot } from './traffic/TrafficManager';
+import { buildPedNetwork, buildRoadGraph, TrafficLights } from './network/cityNetwork';
+import { setVehicleNight } from './vehicles/vehicleModels';
+import { POPULATION_CAPS } from '../engine/quality';
 
 export interface BlocksideHooks {
   getSettings: () => GameSettings;
@@ -46,6 +53,17 @@ export class BlocksideGame implements GameSystems {
   private hooks: BlocksideHooks;
   private reducedMotion: boolean;
   private vehicles!: VehicleManager;
+  private npc!: NPCManager;
+  private traffic!: TrafficManager;
+  private lights!: TrafficLights;
+  private headlight!: THREE.SpotLight;
+  private headlightTarget!: THREE.Object3D;
+  private pedSnapshot: PedSnapshot = { count: 0, positions: [] };
+  private trafficSnapshot: TrafficSnapshot = { count: 0, positions: [] };
+  private ambTimer = 0;
+  private missions!: MissionManager;
+  private eventBus = new EventBus();
+  private roadGraphForTraffic!: import('./network/cityNetwork').RoadGraph;
 
   constructor(hooks: BlocksideHooks, reducedMotion: boolean) {
     this.hooks = hooks;
@@ -120,6 +138,32 @@ export class BlocksideGame implements GameSystems {
     this.cam.sens = settings.sensitivity;
     this.cam.invertY = settings.invertY;
 
+    // ---- living city: pedestrians + AI traffic (Phase 4) ----
+    this.roadGraphForTraffic = buildRoadGraph();
+    const pedNet = buildPedNetwork();
+    this.lights = new TrafficLights();
+    this.npc = new NPCManager(this.physics, this.scene, pedNet);
+    this.traffic = new TrafficManager(this.physics, this.scene, this.roadGraphForTraffic, this.lights);
+    this.headlight = new THREE.SpotLight(0xfff2d8, 0, 60, 0.6, 0.5, 1.2);
+    this.headlightTarget = new THREE.Object3D();
+    this.scene.add(this.headlight, this.headlightTarget);
+    this.headlight.target = this.headlightTarget;
+
+    // Apply user settings (weather/time/quality) immediately on boot
+    this.applySettings(this.hooks.getSettings());
+
+    // ---- missions (Phase 5) ----
+    this.missions = new MissionManager(this.eventBus);
+    this.eventBus.on('mission:updated', (data) => {
+      this.hooks.onHud({ mission: data as MissionHud });
+    });
+    this.eventBus.on('mission:completed', (data) => {
+      const reward = (data as { reward: number }).reward;
+      const s = getState();
+      this.hooks.onHud({ money: s.hud.money + reward });
+    });
+    this.missions.start('explore');
+
     // ---- minimap ----
     this.marker.x = spawn.x;
     this.marker.z = spawn.z;
@@ -135,6 +179,12 @@ export class BlocksideGame implements GameSystems {
         ).toArray(),
       getVehicleState: () => this.vehicles.getVehicleState(),
       getPrompt: () => getState().hud.prompt,
+      getPedState: () => this.pedSnapshot,
+      getTrafficState: () => this.trafficSnapshot,
+      getLightState: () => ({ axis: this.lights.greenAxis(4, 4), inYellow: this.lights.inYellow }),
+      debugSetHour: (h: number) => {
+        this.world.timeOfDay = h;
+      },
       debugTeleport: (x: number, z: number) => {
         if (!this.vehicles.isDriving()) this.player.teleport(x, z);
       },
@@ -155,6 +205,39 @@ export class BlocksideGame implements GameSystems {
     if (this.input.wasPressed('cameraMode')) this.cam.toggleMode();
     const interact = this.input.wasPressed('interact');
 
+    // living-city simulation runs before the physics step (kinematic bodies)
+    const focus = this.vehicles.isDriving()
+      ? this.vehicles.getActive()!.getPosition()
+      : this.player.position;
+    const caps = POPULATION_CAPS[this.hooks.getSettings().quality];
+    this.npc.update(dt, focus, caps.peds);
+    this.pedSnapshot = this.npc.getSnapshot();
+    // Gather all active pedestrian points for AI traffic awareness
+    const allPedPoints = this.npc.getPedPoints();
+    this.missions.update(dt, focus, this.vehicles.isDriving());
+    this.missions.notifyVehicleState(this.vehicles.isDriving(), focus);
+    this.traffic.update(
+      dt,
+      focus,
+      focus,
+      allPedPoints,
+      caps.cars,
+    );
+    this.trafficSnapshot = this.traffic.getSnapshot();
+    setVehicleNight(this.world.night);
+
+    // player vehicle headlights at night
+    if (this.vehicles.isDriving()) {
+      const v = this.vehicles.getActive()!;
+      const fx = -Math.sin(v.getYaw());
+      const fz = -Math.cos(v.getYaw());
+      this.headlight.position.set(focus.x - fx * 1.9, 0.85, focus.z - fz * 1.9);
+      this.headlightTarget.position.set(focus.x - fx * 16, 0.25, focus.z - fz * 16);
+      this.headlight.intensity = this.world.night * 260;
+    } else {
+      this.headlight.intensity = 0;
+    }
+
     // vehicles apply their forces BEFORE the physics step…
     this.vehicles.update(dt, this.input, this.player.position, interact);
     this.physics.step(dt);
@@ -167,7 +250,6 @@ export class BlocksideGame implements GameSystems {
       this.player.setVisible(!this.cam.firstPerson);
     }
 
-    const focus = driving ? this.vehicles.getActive()!.getPosition() : this.player.position;
     this.cam.update(dt, this.player.position, this.player.rigidBody);
 
     this.world.update(dt, focus);
@@ -175,6 +257,15 @@ export class BlocksideGame implements GameSystems {
     this.marker.z = focus.z;
     this.marker.yaw = this.cam.yaw;
     drawMinimap();
+
+    // ambience: ocean near the shore, city hum scaling with life around you
+    this.ambTimer += dt;
+    if (this.ambTimer >= 0.5) {
+      this.ambTimer = 0;
+      const ocean = Math.max(0, Math.min(1, 1 - (CITY.waterlineX - focus.x) / 240));
+      const alive = Math.min(1, (this.pedSnapshot.count + this.trafficSnapshot.count) / 12);
+      this.audio.setAmbience(ocean, alive * 0.8);
+    }
 
     this.hudTimer += dt;
     if (this.hudTimer >= 0.25) {
@@ -185,7 +276,7 @@ export class BlocksideGame implements GameSystems {
         this.hooks.onHud({ zone: zone.label });
         this.hooks.onZoneChange(zone.label);
       }
-      this.hooks.onHud({ clock: this.world.clockString() });
+      this.hooks.onHud({ clock: this.world.clockString(), weather: this.world.weather.current.toUpperCase() });
     }
 
     this.input.postUpdate();
@@ -197,6 +288,11 @@ export class BlocksideGame implements GameSystems {
     this.audio.setMusicOn(s.musicOn);
     this.cam.sens = s.sensitivity;
     this.cam.invertY = s.invertY;
+    if (this.world) {
+      this.world.time.speedSetting = s.timeSpeed;
+      this.world.weather.setWeather(s.weather);
+      this.world.weather.auto = s.autoWeather;
+    }
   }
 
   startAudio(): void {
@@ -229,6 +325,8 @@ export class BlocksideGame implements GameSystems {
     registerMinimapDrawer(null);
     this.input.detach();
     this.audio.dispose();
+    this.npc.dispose();
+    this.traffic.dispose();
     this.vehicles.dispose();
     this.world.dispose();
     this.physics.dispose();

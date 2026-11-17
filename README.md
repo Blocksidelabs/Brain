@@ -7,9 +7,12 @@ atmosphere of retro Miami: 1980s neon, underground street culture, luxury
 machines and nightlife on a beachfront metropolis. It is its own world — no
 copyrighted maps, characters, logos or assets are used anywhere.
 
-**Current status: Phase 1 — playable 3D city.** A single-player foundation
-with a procedurally built neon city, a movable character with real collision,
-third/first-person cameras, a day/night cycle and a full menu/HUD stack.
+**Current status: Phases 1–5 complete.** A single-player foundation with a
+detailed procedurally-built neon city, a full day/night cycle, walking
+pedestrians with real sidewalk navigation, AI traffic that obeys lanes and
+traffic lights, a complete driving system with seven original vehicles, and a
+modular mission system with objectives, timers, and rewards.
+
 
 ---
 

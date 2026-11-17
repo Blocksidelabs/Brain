@@ -1,5 +1,7 @@
 import { patchSettings, useBlockside } from '../state/store';
 import type { QualityId } from '../engine/quality';
+import type { TimeSpeed } from '../game/environment/TimeManager';
+import type { WeatherType } from '../game/environment/WeatherManager';
 
 export function SettingsPanel({ onClose }: { onClose: () => void }) {
   const s = useBlockside();
@@ -11,7 +13,7 @@ export function SettingsPanel({ onClose }: { onClose: () => void }) {
         <div className="setting-row">
           <span>QUALITY</span>
           <div className="seg">
-            {(['low', 'medium', 'high'] as QualityId[]).map((q) => (
+            {(['low', 'medium', 'high', 'ultra'] as QualityId[]).map((q) => (
               <button
                 key={q}
                 className={`seg-btn ${st.quality === q ? 'active' : ''}`}
@@ -56,6 +58,45 @@ export function SettingsPanel({ onClose }: { onClose: () => void }) {
             {st.invertY ? 'ON' : 'OFF'}
           </button>
         </div>
+        
+        <div className="settings-divider" />
+        <h3 className="settings-subtitle">WORLD & WEATHER</h3>
+        
+        <div className="setting-row">
+          <span>TIME SPEED</span>
+          <div className="seg">
+            {(['paused', 'slow', 'normal', 'fast'] as TimeSpeed[]).map((t) => (
+              <button
+                key={t}
+                className={`seg-btn ${st.timeSpeed === t ? 'active' : ''}`}
+                onClick={() => patchSettings({ timeSpeed: t })}
+              >
+                {t === 'paused' ? 'PAUSE' : t.toUpperCase()}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className="setting-row">
+          <span>WEATHER</span>
+          <div className="seg">
+            {(['sunny', 'cloudy', 'overcast', 'rain', 'storm', 'fog'] as WeatherType[]).map((w) => (
+              <button
+                key={w}
+                className={`seg-btn ${st.weather === w ? 'active' : ''}`}
+                onClick={() => patchSettings({ weather: w, autoWeather: false })}
+              >
+                {w.toUpperCase()}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className="setting-row">
+          <span>AUTO WEATHER</span>
+          <button className={`toggle ${st.autoWeather ? 'on' : ''}`} onClick={() => patchSettings({ autoWeather: !st.autoWeather })}>
+            {st.autoWeather ? 'ON' : 'OFF'}
+          </button>
+        </div>
+
         <button className="btn" onClick={onClose}>
           DONE
         </button>

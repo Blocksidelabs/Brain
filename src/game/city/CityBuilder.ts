@@ -1,10 +1,15 @@
 import * as THREE from 'three';
 import { UniformsLib, UniformsUtils } from 'three';
+import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { CITY } from '../../config/gameConfig';
-import type { BuildingSpec, CityData } from './CityGenerator';
+import { mulberry32 } from '../../engine/mathUtils';
+import type { CityData } from './CityGenerator';
+import { GAS_LOT, PARK_LOT, PLAZA_LOT } from './CityGenerator';
+import { roadCoord } from '../network/cityNetwork';
+import { blockCenter, blockZone } from './zones';
+import { getBuildingStyle, buildGasStationStyle } from './buildingKit';
 import {
   makeBillboardTexture,
-  makeBuildingTextures,
   makeFrondTexture,
   makeGlowTexture,
   makeSignTexture,
@@ -15,6 +20,7 @@ import { buildGround } from './groundPlan';
 export interface CityBuild {
   group: THREE.Group;
   update(dt: number, night: number, elapsed: number): void;
+  setWetness(w: number): void;
   dispose(): void;
 }
 
@@ -34,7 +40,9 @@ interface FlickerEntry {
 function disposeObject(root: THREE.Object3D): void {
   root.traverse((obj) => {
     const mesh = obj as THREE.Mesh;
-    if (mesh.geometry) mesh.geometry.dispose();
+    // geometries flagged `shared` live in the building-style cache and must
+    // survive a session teardown
+    if (mesh.geometry && !mesh.userData.shared) mesh.geometry.dispose();
     const mat = (mesh as Partial<THREE.Mesh>).material as THREE.Material | THREE.Material[] | undefined;
     if (Array.isArray(mat)) mat.forEach((m) => m.dispose());
     else if (mat) mat.dispose();
@@ -52,6 +60,8 @@ export function buildCity(data: CityData): CityBuild {
   // ---------- ground + outskirt ----------
   const ground = buildGround();
   group.add(ground);
+  const groundMat = ground.material as THREE.MeshStandardMaterial;
+  const baseGroundColor = groundMat.color.clone();
 
   const outskirt = new THREE.Mesh(
     new THREE.PlaneGeometry(2600, 2600),
@@ -125,58 +135,46 @@ export function buildCity(data: CityData): CityBuild {
   ocean.position.set(CITY.waterlineX + 700, -0.35, 0);
   group.add(ocean);
 
-  // ---------- buildings (instanced, bucketed by height) ----------
-  interface Bucket {
-    maxH: number;
-    rows: number;
-    items: BuildingSpec[];
-  }
-  const buckets: Bucket[] = [
-    { maxH: 9, rows: 3, items: [] },
-    { maxH: 32, rows: 9, items: [] },
-    { maxH: Infinity, rows: 24, items: [] },
-  ];
+  // ---------- buildings (merged archetype geometry, vertex-coloured) ----------
+  const structureMat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.85, metalness: 0.06 });
+  const windowGlowMat = new THREE.MeshBasicMaterial({ vertexColors: true, toneMapped: false });
+
   for (const b of data.buildings) {
-    (b.h <= 9 ? buckets[0] : b.h <= 32 ? buckets[1] : buckets[2]).items.push(b);
+    const variant = Math.abs(Math.round((b.x * 7 + b.z * 11) | 0)) % 3;
+    const style = getBuildingStyle(b, variant);
+    const mesh = new THREE.Mesh(style.structure, structureMat);
+    mesh.position.set(b.x, 0, b.z);
+    mesh.castShadow = true;
+    mesh.receiveShadow = true;
+    mesh.userData.shared = true;
+    group.add(mesh);
+    const glow = new THREE.Mesh(style.glow, windowGlowMat);
+    glow.position.set(b.x, 0, b.z);
+    glow.renderOrder = 1;
+    glow.userData.shared = true;
+    group.add(glow);
   }
 
-  const windowMats: THREE.MeshStandardMaterial[] = [];
-  const roofMat = new THREE.MeshStandardMaterial({ color: 0x14161c, roughness: 0.95 });
+  // gas stations (dedicated lot: shop + canopy + pumps)
+  for (const gas of data.gasStations) {
+    const style = buildGasStationStyle();
+    const mesh = new THREE.Mesh(style.structure, structureMat);
+    mesh.position.set(gas.x, 0, gas.z);
+    mesh.castShadow = true;
+    mesh.receiveShadow = true;
+    mesh.userData.shared = true;
+    group.add(mesh);
+    const glow = new THREE.Mesh(style.glow, windowGlowMat);
+    glow.position.set(gas.x, 0, gas.z);
+    glow.renderOrder = 1;
+    glow.userData.shared = true;
+    group.add(glow);
+  }
+
+  // ---------- rooftop props ----------
   const unitBox = new THREE.BoxGeometry(1, 1, 1);
   unitBox.translate(0, 0.5, 0);
 
-  buckets.forEach((bucket, i) => {
-    if (bucket.items.length === 0) return;
-    const texSet = makeBuildingTextures(1000 + i * 77, bucket.rows);
-    keep(texSet.map);
-    keep(texSet.emissiveMap);
-    const side = new THREE.MeshStandardMaterial({
-      map: texSet.map,
-      emissiveMap: texSet.emissiveMap,
-      emissive: 0xffffff,
-      emissiveIntensity: 0.12,
-      roughness: 0.85,
-      metalness: 0.05,
-    });
-    windowMats.push(side);
-    // BoxGeometry group order: +x, -x, +y(top), -y, +z, -z
-    const mesh = new THREE.InstancedMesh(unitBox, [side, side, roofMat, roofMat, side, side], bucket.items.length);
-    const m = new THREE.Matrix4();
-    const col = new THREE.Color();
-    bucket.items.forEach((b, idx) => {
-      m.makeScale(b.w, b.h, b.d);
-      m.setPosition(b.x, 0, b.z);
-      mesh.setMatrixAt(idx, m);
-      mesh.setColorAt(idx, col.set(b.tint));
-    });
-    mesh.instanceMatrix.needsUpdate = true;
-    if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
-    mesh.castShadow = true;
-    mesh.receiveShadow = true;
-    group.add(mesh);
-  });
-
-  // ---------- rooftop props ----------
   if (data.roofProps.length > 0) {
     const propMat = new THREE.MeshStandardMaterial({ color: 0x1a1d24, roughness: 0.9 });
     const propMesh = new THREE.InstancedMesh(unitBox, propMat, data.roofProps.length);
@@ -230,6 +228,8 @@ export function buildCity(data: CityData): CityBuild {
   const billboards: Array<{ x: number; z: number; rotY: number; h: number; w: number; hh: number; l1: string; l2: string | null; phase: number }> = [
     { x: 10, z: -76, rotY: -Math.PI / 2, h: 18, w: 16, hh: 8, l1: 'BLOCKSIDE', l2: 'THE CITY IS YOURS.', phase: 0 },
     { x: 338, z: -120, rotY: -Math.PI / 2, h: 12, w: 12, hh: 6, l1: 'SUNSET STRIP', l2: 'MILE 0', phase: 2.1 },
+    { x: -160, z: 332, rotY: Math.PI, h: 14, w: 14, hh: 7, l1: 'BLOCKSIDE FM 88.3', l2: 'NEON NIGHTS · FRIDAY', phase: 4.2 },
+    { x: -332, z: 80, rotY: Math.PI / 2, h: 12, w: 12, hh: 6, l1: 'PALM COURT MALL', l2: 'OPEN 24H', phase: 1.2 },
   ];
   const poleMat = new THREE.MeshStandardMaterial({ color: 0x181b22, roughness: 0.8, metalness: 0.3 });
   for (const bb of billboards) {
@@ -416,11 +416,191 @@ export function buildCity(data: CityData): CityBuild {
     group.add(trunks, fronds);
   }
 
+  // ---------- street furniture (instanced props) ----------
+  {
+    const propRng = mulberry32(2024);
+    const mergedGeo = (parts: Array<[number, number, number, number, number, number]>): THREE.BufferGeometry => {
+      const list = parts.map(([w, h, d, x, y, z]) => {
+        const g = new THREE.BoxGeometry(w, h, d);
+        g.translate(x, y, z);
+        return g;
+      });
+      const merged = mergeGeometries(list, false)!;
+      list.forEach((g) => g.dispose());
+      merged.computeBoundingSphere();
+      return merged;
+    };
+    const instanced = (
+      geo: THREE.BufferGeometry,
+      mat: THREE.Material,
+      spots: Array<{ x: number; z: number; ry?: number }>,
+      shadow = true,
+    ): void => {
+      if (spots.length === 0) return;
+      const mesh = new THREE.InstancedMesh(geo, mat, spots.length);
+      const m = new THREE.Matrix4();
+      const q = new THREE.Quaternion();
+      const e = new THREE.Euler();
+      const p = new THREE.Vector3();
+      const one = new THREE.Vector3(1, 1, 1);
+      spots.forEach((spot, i) => {
+        e.set(0, spot.ry ?? 0, 0);
+        q.setFromEuler(e);
+        p.set(spot.x, 0, spot.z);
+        m.compose(p, q, one);
+        mesh.setMatrixAt(i, m);
+      });
+      mesh.instanceMatrix.needsUpdate = true;
+      mesh.castShadow = shadow;
+      mesh.receiveShadow = true;
+      group.add(mesh);
+    };
+
+    const benchGeo = mergedGeo([
+      [1.6, 0.08, 0.45, 0, 0.45, 0],
+      [0.08, 0.45, 0.4, -0.7, 0.22, 0],
+      [0.08, 0.45, 0.4, 0.7, 0.22, 0],
+    ]);
+    const binGeo = mergedGeo([
+      [0.5, 0.8, 0.5, 0, 0.4, 0],
+      [0.56, 0.06, 0.56, 0, 0.84, 0],
+    ]);
+    const hydrantGeo = mergedGeo([
+      [0.22, 0.55, 0.22, 0, 0.28, 0],
+      [0.32, 0.1, 0.32, 0, 0.6, 0],
+    ]);
+    const busStopGeo = mergedGeo([
+      [2.6, 0.08, 1.4, 0, 2.5, 0],
+      [2.6, 2.2, 0.1, 0, 1.1, 0.65],
+      [0.1, 2.5, 1.4, -1.3, 1.25, 0],
+      [0.1, 2.5, 1.4, 1.3, 1.25, 0],
+      [1.7, 0.08, 0.4, 0, 0.55, -0.3],
+    ]);
+    const umbrellaGeo = (() => {
+      const canopy = new THREE.CylinderGeometry(0.06, 1.05, 0.5, 8);
+      canopy.translate(0, 1.95, 0);
+      const pole = new THREE.CylinderGeometry(0.04, 0.04, 2.1, 6);
+      pole.translate(0, 1.05, 0);
+      const merged = mergeGeometries([canopy, pole], false)!;
+      canopy.dispose();
+      pole.dispose();
+      merged.computeBoundingSphere();
+      return merged;
+    })();
+    const towelGeo = new THREE.BoxGeometry(0.8, 0.04, 1.6);
+    const hedgeGeo = new THREE.BoxGeometry(2.6, 0.75, 0.7);
+    const planterGeo = mergedGeo([
+      [1.2, 0.55, 1.2, 0, 0.28, 0],
+      [1.0, 0.3, 1.0, 0, 0.62, 0],
+    ]);
+
+    const woodMat = new THREE.MeshStandardMaterial({ color: 0x7a5c40, roughness: 0.9 });
+    const binMat = new THREE.MeshStandardMaterial({ color: 0x2f4a3a, roughness: 0.8, metalness: 0.3 });
+    const hydrantMat = new THREE.MeshStandardMaterial({ color: 0xc0392b, roughness: 0.6 });
+    const steelMat = new THREE.MeshStandardMaterial({ color: 0x9fb4c4, roughness: 0.5, metalness: 0.4 });
+    const hedgeMat = new THREE.MeshStandardMaterial({ color: 0x2e6b45, roughness: 1 });
+    const planterMat = new THREE.MeshStandardMaterial({ color: 0x8d8779, roughness: 0.95 });
+    const towelMat = new THREE.MeshStandardMaterial({ color: 0xff5c8a, roughness: 1 });
+    const umbrellaMats = [0xff2d95, 0x2ec4b6].map(
+      (c) => new THREE.MeshStandardMaterial({ color: c, roughness: 0.8, side: THREE.DoubleSide }),
+    );
+
+    const benches: Array<{ x: number; z: number }> = [];
+    const planters: Array<{ x: number; z: number }> = [];
+    const bins: Array<{ x: number; z: number }> = [];
+    const hydrants: Array<{ x: number; z: number }> = [];
+    const hedges: Array<{ x: number; z: number }> = [];
+    for (let bz = 0; bz < CITY.grid; bz++) {
+      for (let bx = 0; bx < CITY.grid; bx++) {
+        const cx = blockCenter(bx);
+        const cz = blockCenter(bz);
+        const special =
+          (bx === PLAZA_LOT.bx && bz === PLAZA_LOT.bz) ||
+          (bx === PARK_LOT.bx && bz === PARK_LOT.bz) ||
+          (bx === GAS_LOT.bx && bz === GAS_LOT.bz);
+        const zone = blockZone(bx, bz);
+        if (special || zone === 'industrial') continue;
+        if (zone === 'downtown' || zone === 'nightlife') {
+          benches.push({ x: cx - 12, z: cz + 30.5 }, { x: cx + 12, z: cz + 30.5 });
+          planters.push({ x: cx - 20, z: cz + 30.5 }, { x: cx + 20, z: cz - 30.5 });
+        }
+        bins.push({ x: cx + 30.5, z: cz + 26 });
+        if (propRng() < 0.4) hydrants.push({ x: cx - 30.5, z: cz + 22 });
+        if (zone === 'residential') {
+          hedges.push({ x: cx - 10, z: cz - 29.5 }, { x: cx + 10, z: cz - 29.5 });
+        }
+      }
+    }
+    instanced(benchGeo, woodMat, benches);
+    instanced(planterGeo, planterMat, planters);
+    instanced(binGeo, binMat, bins);
+    instanced(hydrantGeo, hydrantMat, hydrants);
+    instanced(hedgeGeo, hedgeMat, hedges);
+
+    const busStops: Array<{ x: number; z: number; ry: number }> = [];
+    for (const [kx, kz] of [
+      [4, 4],
+      [2, 6],
+      [7, 3],
+      [1, 1],
+      [5, 5],
+      [6, 2],
+    ] as const) {
+      busStops.push({ x: roadCoord(kx) + 16, z: roadCoord(kz) + 16, ry: Math.PI / 4 });
+    }
+    instanced(busStopGeo, steelMat, busStops);
+
+    const poleGeo = new THREE.CylinderGeometry(0.05, 0.05, 2.4, 6);
+    poleGeo.translate(0, 1.2, 0);
+    const plateGeo = new THREE.BoxGeometry(0.6, 0.6, 0.05);
+    plateGeo.translate(0, 2.2, 0);
+    const signSpots: Array<{ x: number; z: number; ry: number }> = [];
+    for (let i = 0; i < 12; i++) {
+      const along = -300 + (i / 12) * 600;
+      if (i % 2 === 0) {
+        signSpots.push({ x: roadCoord(i % 9) + 10.5, z: along, ry: 0 });
+      } else {
+        signSpots.push({ x: along, z: roadCoord(i % 9) - 10.5, ry: Math.PI / 2 });
+      }
+    }
+    instanced(poleGeo, steelMat, signSpots);
+    instanced(plateGeo, new THREE.MeshStandardMaterial({ color: 0xe8ecf0, roughness: 0.5 }), signSpots, false);
+
+    const umbA: Array<{ x: number; z: number }> = [];
+    const umbB: Array<{ x: number; z: number }> = [];
+    const towels: Array<{ x: number; z: number; ry: number }> = [];
+    for (let i = 0; i < 26; i++) {
+      const x = 336 + propRng() * 14;
+      const z = -280 + propRng() * 560;
+      (i % 2 ? umbB : umbA).push({ x, z });
+      if (i % 3 === 0) {
+        towels.push({ x: x - 2 - propRng() * 2, z: z + propRng() * 6 - 3, ry: propRng() * Math.PI });
+      }
+    }
+    instanced(umbrellaGeo, umbrellaMats[0], umbA, false);
+    instanced(umbrellaGeo, umbrellaMats[1], umbB, false);
+    instanced(towelGeo, towelMat, towels, false);
+
+    const towerGeo = mergedGeo([
+      [0.15, 2.6, 0.15, -0.8, 1.3, -0.8],
+      [0.15, 2.6, 0.15, 0.8, 1.3, -0.8],
+      [0.15, 2.6, 0.15, -0.8, 1.3, 0.8],
+      [0.15, 2.6, 0.15, 0.8, 1.3, 0.8],
+      [2.1, 1.5, 2.1, 0, 3.35, 0],
+      [2.7, 0.14, 2.7, 0, 4.25, 0],
+      [1.9, 0.08, 0.9, 0, 2.75, 1.2],
+    ]);
+    const towerMesh = new THREE.Mesh(towerGeo, new THREE.MeshStandardMaterial({ color: 0xd96a4a, roughness: 0.85 }));
+    towerMesh.position.set(348, 0, 100);
+    towerMesh.castShadow = true;
+    group.add(towerMesh);
+  }
+
   // ---------- frame update / teardown ----------
   const update = (_dt: number, night: number, elapsed: number): void => {
     oceanUniforms.uTime.value = elapsed;
     oceanUniforms.uNight.value = night;
-    for (const m of windowMats) m.emissiveIntensity = 0.12 + night * 0.9;
+    windowGlowMat.color.setScalar(0.06 + night * 1.9);
     lampHeadMat.emissiveIntensity = 0.15 + night * 2.4;
     poolMat.opacity = night * 0.85;
     for (const f of flickers) {
@@ -438,5 +618,12 @@ export function buildCity(data: CityData): CityBuild {
     textures.length = 0;
   };
 
-  return { group, update, dispose };
+  const setWetness = (w: number): void => {
+    // Wet roads: darker, less rough (reflective), slightly metallic
+    groundMat.roughness = 0.94 - w * 0.65;
+    groundMat.metalness = w * 0.35;
+    groundMat.color.copy(baseGroundColor).lerp(new THREE.Color(0x05070c), w * 0.45);
+  };
+
+  return { group, update, setWetness, dispose };
 }

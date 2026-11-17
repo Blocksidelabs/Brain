@@ -1,5 +1,7 @@
 import { useSyncExternalStore } from 'react';
 import type { QualityId } from '../engine/quality';
+import type { TimeSpeed } from '../game/environment/TimeManager';
+import type { WeatherType } from '../game/environment/WeatherManager';
 
 export type Screen = 'menu' | 'playing' | 'paused';
 
@@ -9,6 +11,9 @@ export interface GameSettings {
   musicOn: boolean;
   sensitivity: number; // multiplier, 1 = default
   invertY: boolean;
+  timeSpeed: TimeSpeed;
+  weather: WeatherType;
+  autoWeather: boolean;
 }
 
 export interface VehicleHud {
@@ -22,14 +27,22 @@ export interface VehicleHud {
   nitroLocked: boolean;
 }
 
+export interface MissionHud {
+  title: string;
+  objective: string;
+  timeLeft: number;
+}
+
 export interface HudState {
   zone: string;
   clock: string;
+  weather: string;
   health: number;
   money: number;
   fps: number;
   prompt: string | null;
   vehicle: VehicleHud | null;
+  mission: MissionHud | null;
 }
 
 export interface BlocksideState {
@@ -46,6 +59,9 @@ export const DEFAULT_SETTINGS: GameSettings = {
   musicOn: true,
   sensitivity: 1,
   invertY: false,
+  timeSpeed: 'normal',
+  weather: 'sunny',
+  autoWeather: true,
 };
 
 const SETTINGS_KEY = 'blockside.settings.v1';
@@ -66,7 +82,7 @@ let state: BlocksideState = {
   screen: 'menu',
   loading: false,
   settings: loadSettings(),
-  hud: { zone: '—', clock: '—', health: 100, money: 0, fps: 0, prompt: null, vehicle: null },
+  hud: { zone: '—', clock: '—', weather: 'SUNNY', health: 100, money: 0, fps: 0, prompt: null, vehicle: null, mission: null },
   zoneBanner: null,
 };
 

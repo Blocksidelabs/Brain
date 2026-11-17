@@ -7,7 +7,18 @@ export function HUD() {
     <div className="hud">
       <div className="hud-top-left">
         <div className="hud-zone neon-pink">{s.hud.zone}</div>
-        <div className="hud-clock">{s.hud.clock}</div>
+        <div className="hud-clock">
+          {s.hud.clock} · {s.hud.weather}
+        </div>
+        {s.hud.mission && (
+          <div className="mission-panel">
+            <div className="mission-title">{s.hud.mission.title}</div>
+            <div className="mission-objective">{s.hud.mission.objective}</div>
+            {s.hud.mission.timeLeft > 0 && (
+              <div className="mission-timer">{Math.ceil(s.hud.mission.timeLeft)}s</div>
+            )}
+          </div>
+        )}
       </div>
       <div className="hud-top-right">
         <div className="hud-money">${s.hud.money.toLocaleString('en-US')}</div>
